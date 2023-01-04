@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "939168091449",
+    "project_id": "sentinela-68110",
+    "storage_bucket": "sentinela-68110.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:939168091449:android:dac4d3d1325b3478922ce8",
+        "android_client_info": {
+          "package_name": "com.example.sentinela"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "939168091449-adegq5aqkv2srbo4ua9tf8ni0t2ep37a.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD2MbTddJIk_rWTMFJ14PNLbo2LT7p2Qeo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "939168091449-adegq5aqkv2srbo4ua9tf8ni0t2ep37a.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "939168091449-u11o27rrfm8cm5kjbkasof2pk4dsijou.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.sentinela"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
