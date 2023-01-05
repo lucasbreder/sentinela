@@ -37,32 +37,32 @@ class _NavScaffoldState extends State<NavScaffold> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      bottomNavigationBar: GestureDetector(
-        onTap: () {
-          launchUrlString('https://linktr.ee/appsentinela');
-        },
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(0, 10, 0, 20),
-          child: RichText(
-            text: const TextSpan(children: [
-              TextSpan(
-                text: 'Faça uma doação e ajude a manter esse app no ar',
-                style: TextStyle(color: Colors.white),
-              ),
-              WidgetSpan(
-                  child: SizedBox(
-                width: 5,
-              )),
-              WidgetSpan(
-                  child: Icon(
-                Icons.favorite,
-                color: Colors.white,
-              ))
-            ]),
-            textAlign: TextAlign.center,
-          ),
-        ),
-      ),
+      // bottomNavigationBar: GestureDetector(
+      //   onTap: () {
+      //     launchUrlString('https://linktr.ee/appsentinela');
+      //   },
+      //   child: Container(
+      //     padding: const EdgeInsets.fromLTRB(0, 10, 0, 20),
+      //     child: RichText(
+      //       text: const TextSpan(children: [
+      //         TextSpan(
+      //           text: 'Faça uma doação e ajude a manter esse app no ar',
+      //           style: TextStyle(color: Colors.white),
+      //         ),
+      //         WidgetSpan(
+      //             child: SizedBox(
+      //           width: 5,
+      //         )),
+      //         WidgetSpan(
+      //             child: Icon(
+      //           Icons.favorite,
+      //           color: Colors.white,
+      //         ))
+      //       ]),
+      //       textAlign: TextAlign.center,
+      //     ),
+      //   ),
+      // ),
       backgroundColor: Theme.of(context).colorScheme.primary,
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.primary,
