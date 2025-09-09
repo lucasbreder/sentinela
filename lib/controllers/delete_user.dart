@@ -11,7 +11,7 @@ Future<String> deleteUser(String password) async {
       email: currentUser.email ?? '',
       password: password,
     );
-  } on FirebaseAuthException catch (e) {
+  } on FirebaseAuthException {
     return 'Falha ao remover, verifique sua senha';
   }
 

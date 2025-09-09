@@ -5,7 +5,7 @@ Future<String> forgotPassword(email) async {
 
   try {
     await auth.sendPasswordResetEmail(email: email);
-  } on FirebaseAuthException catch (e) {
+  } on FirebaseAuthException {
     return 'O usuário não existe';
   }
 

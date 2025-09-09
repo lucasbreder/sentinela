@@ -14,7 +14,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 class ReportList extends StatefulWidget {
-  const ReportList({Key? key}) : super(key: key);
+  const ReportList({super.key});
 
   @override
   State<ReportList> createState() => _ReportListState();
@@ -247,15 +247,18 @@ class _ReportListState extends State<ReportList> {
                                   ],
                                 ),
                               );
+                              try {
+                                final output = await getTemporaryDirectory();
+                                final filePath =
+                                    "${output.path}/Relatorio-${DateTime.now().toString()}.pdf";
+                                final file = File(filePath);
 
-                              final output = await getTemporaryDirectory();
-                              final filePath =
-                                  "${output.path}/Relatorio-${DateTime.now().toString()}.pdf";
-                              final file = File(filePath);
+                                await file.writeAsBytes(await pdf.save());
 
-                              await file.writeAsBytes(await pdf.save());
-
-                              OpenFilex.open(filePath);
+                                OpenFilex.open(filePath);
+                                }catch (e) {
+                                    print('Failed to get temporary directory: $e');
+                                  }
                             },
                           ),
                           ListView.builder(

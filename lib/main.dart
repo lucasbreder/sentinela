@@ -22,7 +22,7 @@ void main() async {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({super.key});
 
   // This widget is the root of your application.
   @override
@@ -45,21 +45,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         fontFamily: 'Monda',
         primaryColor: const Color.fromARGB(255, 114, 32, 59),
-        colorScheme: const ColorScheme(
-          brightness: Brightness.light,
-          primary: Color.fromARGB(255, 114, 32, 59),
-          onPrimary: Color.fromARGB(255, 255, 255, 255),
-          secondary: Color.fromARGB(255, 32, 82, 139),
-          onSecondary: Color.fromARGB(255, 112, 112, 112),
-          error: Color.fromARGB(255, 181, 64, 34),
-          onError: Color.fromARGB(255, 112, 112, 112),
-          background: Color.fromARGB(255, 112, 112, 112),
-          onBackground: Color.fromARGB(255, 255, 255, 255),
-          surface: Color.fromARGB(255, 230, 230, 230),
-          onSurface: Color.fromARGB(255, 112, 112, 112),
-        ),
         scaffoldBackgroundColor: Colors.white,
-        backgroundColor: Colors.white,
         inputDecorationTheme: const InputDecorationTheme(
           labelStyle: TextStyle(
             color: Color.fromARGB(255, 112, 112, 112),
@@ -77,7 +63,17 @@ class MyApp extends StatelessWidget {
             ),
           ),
         ),
-        textTheme: const TextTheme(),
+        textTheme: const TextTheme(), colorScheme: const ColorScheme(
+          brightness: Brightness.light,
+          primary: Color.fromARGB(255, 114, 32, 59),
+          onPrimary: Color.fromARGB(255, 255, 255, 255),
+          secondary: Color.fromARGB(255, 32, 82, 139),
+          onSecondary: Color.fromARGB(255, 112, 112, 112),
+          error: Color.fromARGB(255, 181, 64, 34),
+          onError: Color.fromARGB(255, 112, 112, 112),
+          surface: Color.fromARGB(255, 230, 230, 230),
+          onSurface: Color.fromARGB(255, 112, 112, 112),
+        )
       ),
       routes: {
         '/': (context) => const Login(),
