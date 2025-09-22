@@ -31,13 +31,13 @@ class _GuestUnitsListState extends State<GuestUnitsList> {
               decoration: BoxDecoration(
                   borderRadius: const BorderRadius.all(Radius.circular(6)),
                   border: Border.all(
-                    color: Theme.of(context).colorScheme.background,
+                    color: Theme.of(context).colorScheme.surface,
                     width: 1,
                   )),
               child: Text(
                 unit.get('name'),
                 style: TextStyle(
-                  color: Theme.of(context).colorScheme.background,
+                  color: Theme.of(context).colorScheme.surface,
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                 ),
@@ -50,7 +50,7 @@ class _GuestUnitsListState extends State<GuestUnitsList> {
                         Text(
                           'Acesso até',
                           style: TextStyle(
-                            color: Theme.of(context).colorScheme.background,
+                            color: Theme.of(context).colorScheme.surface,
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
                           ),
@@ -59,7 +59,7 @@ class _GuestUnitsListState extends State<GuestUnitsList> {
                           formatDate(
                               unitGuest.get('expires_at').toDate().toString()),
                           style: TextStyle(
-                            color: Theme.of(context).colorScheme.background,
+                            color: Theme.of(context).colorScheme.surface,
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
                           ),

@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:sentinela/controllers/get_my_units.dart';
 import 'package:sentinela/controllers/get_unit.dart';
@@ -7,7 +6,7 @@ import 'package:sentinela/models/unit.dart';
 import 'package:sentinela/pages/access_unit_page.dart';
 
 class MyUnitsList extends StatefulWidget {
-  const MyUnitsList({Key? key}) : super(key: key);
+  const MyUnitsList({super.key});
 
   @override
   State<MyUnitsList> createState() => _MyUnitsListState();
@@ -33,7 +32,7 @@ class _MyUnitsListState extends State<MyUnitsList> {
                   border: Border.all(
                     color: unitData.get('role') == 'owner'
                         ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.background,
+                        : Theme.of(context).colorScheme.surface,
                     width: unitData.get('role') == 'owner' ? 3 : 2,
                   )),
               child: unitData.get('role') == 'owner'
@@ -60,7 +59,7 @@ class _MyUnitsListState extends State<MyUnitsList> {
                   : Text(
                       unit.get('name'),
                       style: TextStyle(
-                        color: Theme.of(context).colorScheme.background,
+                        color: Theme.of(context).colorScheme.surface,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
@@ -74,7 +73,7 @@ class _MyUnitsListState extends State<MyUnitsList> {
                         Text(
                           'Acesso até',
                           style: TextStyle(
-                            color: Theme.of(context).colorScheme.background,
+                            color: Theme.of(context).colorScheme.surface,
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
                           ),
@@ -83,7 +82,7 @@ class _MyUnitsListState extends State<MyUnitsList> {
                           formatDate(
                               unitData.get('expires_at').toDate().toString()),
                           style: TextStyle(
-                            color: Theme.of(context).colorScheme.background,
+                            color: Theme.of(context).colorScheme.surface,
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
                           ),

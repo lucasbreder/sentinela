@@ -79,13 +79,13 @@ class _RegistryCreateState extends State<RegistryCreate> {
                           child: Container(
                             decoration: BoxDecoration(
                               border: Border.all(
-                                color: Theme.of(context).colorScheme.background,
+                                color: Theme.of(context).colorScheme.surface,
                                 width: 1,
                               ),
                               borderRadius:
                                   const BorderRadius.all(Radius.circular(6)),
                               color: type == 'Entrada'
-                                  ? Theme.of(context).colorScheme.background
+                                  ? Theme.of(context).colorScheme.surface
                                   : Colors.transparent,
                             ),
                             padding: const EdgeInsets.all(10),
@@ -95,7 +95,7 @@ class _RegistryCreateState extends State<RegistryCreate> {
                               style: TextStyle(
                                 color: type == 'Entrada'
                                     ? Colors.white
-                                    : Theme.of(context).colorScheme.background,
+                                    : Theme.of(context).colorScheme.surface,
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -115,13 +115,13 @@ class _RegistryCreateState extends State<RegistryCreate> {
                           child: Container(
                             decoration: BoxDecoration(
                               border: Border.all(
-                                color: Theme.of(context).colorScheme.background,
+                                color: Theme.of(context).colorScheme.surface,
                                 width: 1,
                               ),
                               borderRadius:
                                   const BorderRadius.all(Radius.circular(6)),
                               color: type == 'Saída'
-                                  ? Theme.of(context).colorScheme.background
+                                  ? Theme.of(context).colorScheme.surface
                                   : Colors.transparent,
                             ),
                             padding: const EdgeInsets.all(10),
@@ -131,7 +131,7 @@ class _RegistryCreateState extends State<RegistryCreate> {
                               style: TextStyle(
                                 color: type == 'Saída'
                                     ? Colors.white
-                                    : Theme.of(context).colorScheme.background,
+                                    : Theme.of(context).colorScheme.surface,
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
                               ),

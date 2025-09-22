@@ -39,7 +39,7 @@ class _AccessUnitPageState extends State<AccessUnitPage> {
           decoration: BoxDecoration(
               border: Border(
             bottom: BorderSide(
-                width: 1, color: Theme.of(context).colorScheme.background),
+                width: 1, color: Theme.of(context).colorScheme.surface),
           )),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,

@@ -12,6 +12,18 @@ import 'package:sentinela/widgets/list/report_pdf_item.dart';
 import 'package:sentinela/widgets/title/secondary_title.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:file_saver/file_saver.dart';
+import 'dart:typed_data';
+
+
+void downloadPdfFile(fileBytes, fileName) async {
+      // Salvar o arquivo
+      await FileSaver.instance.saveFile(
+        name: fileName, // Nome do arquivo
+        bytes: fileBytes,
+        mimeType: MimeType.pdf, // Tipo MIME
+      );
+    }
 
 class ReportList extends StatefulWidget {
   const ReportList({super.key});
@@ -80,7 +92,7 @@ class _ReportListState extends State<ReportList> {
                                     border: Border.all(
                                       color: Theme.of(context)
                                           .colorScheme
-                                          .background,
+                                          .surface,
                                       width: 1,
                                     ),
                                     borderRadius: const BorderRadius.all(
@@ -88,7 +100,7 @@ class _ReportListState extends State<ReportList> {
                                     color: unitId == data.get('unit_id')
                                         ? Theme.of(context)
                                             .colorScheme
-                                            .background
+                                            .surface
                                         : Colors.transparent,
                                   ),
                                   padding: const EdgeInsets.all(10),
@@ -100,7 +112,7 @@ class _ReportListState extends State<ReportList> {
                                           ? Colors.white
                                           : Theme.of(context)
                                               .colorScheme
-                                              .background,
+                                              .surface,
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -247,18 +259,8 @@ class _ReportListState extends State<ReportList> {
                                   ],
                                 ),
                               );
-                              try {
-                                final output = await getTemporaryDirectory();
-                                final filePath =
-                                    "${output.path}/Relatorio-${DateTime.now().toString()}.pdf";
-                                final file = File(filePath);
-
-                                await file.writeAsBytes(await pdf.save());
-
-                                OpenFilex.open(filePath);
-                                }catch (e) {
-                                    print('Failed to get temporary directory: $e');
-                                  }
+                              Uint8List file = await pdf.save();
+                              downloadPdfFile(file, "Relatorio-${DateTime.now().toString()}.pdf");
                             },
                           ),
                           ListView.builder(
@@ -297,7 +299,7 @@ class _ReportListState extends State<ReportList> {
                                               width: 1,
                                               color: Theme.of(context)
                                                   .colorScheme
-                                                  .background),
+                                                  .surface),
                                         ),
                                       ),
                                       padding: const EdgeInsets.all(2),
