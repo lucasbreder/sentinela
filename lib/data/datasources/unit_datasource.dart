@@ -58,10 +58,12 @@ class FirebaseUnitRepository implements UnitRepository {
 
   @override
   Future<bool> isGuest(String userId, String unitId) async {
+    final uid = _currentUserId();
     final q = await _db
         .collection(AppCollections.units)
         .doc(unitId)
         .collection(AppCollections.permissions)
+        .where(AppFields.ownerId, isEqualTo: uid)
         .where(AppFields.userId, isEqualTo: userId)
         .where(AppFields.role, isEqualTo: UserRole.guest)
         .get();
@@ -86,10 +88,12 @@ class FirebaseUnitRepository implements UnitRepository {
   @override
   Future<List<Permission>> getUnitGuests(String unitId) async {
     await _requireOwner(unitId);
+    final uid = _currentUserId();
     final q = await _db
         .collection(AppCollections.units)
         .doc(unitId)
         .collection(AppCollections.permissions)
+        .where(AppFields.ownerId, isEqualTo: uid)
         .where(AppFields.role, isEqualTo: UserRole.guest)
         .get();
     return q.docs
@@ -103,6 +107,9 @@ class FirebaseUnitRepository implements UnitRepository {
   @override
   Future<void> addGuest(String unitId, String userId, DateTime? expiresAt) async {
     await _requireOwner(unitId);
+    if (await isOwner(userId, unitId)) {
+      throw const ValidationError('O usuário já é dono desta unidade');
+    }
     final unit = await getUnit(unitId);
     await _db
         .collection(AppCollections.units)
