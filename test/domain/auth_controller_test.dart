@@ -95,6 +95,11 @@ void main() {
     expect(result, isA<Success<void>>());
   });
 
+  test('resendEmailVerification reenvia confirmação com sucesso', () async {
+    final result = await controller.resendEmailVerification();
+    expect(result, isA<Success<void>>());
+  });
+
   group('isEmailVerified', () {
     test('reflete o estado de verificação do usuário', () async {
       auth.emailVerified = false;

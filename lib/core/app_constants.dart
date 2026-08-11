@@ -4,6 +4,7 @@ abstract final class AppCollections {
   static const registries = 'registries';
   static const permissions = 'permissions';
   static const profiles = 'profiles';
+  static const invites = 'invites';
 }
 
 abstract final class AppFields {

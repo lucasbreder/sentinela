@@ -6,6 +6,5 @@ class ProfileController {
 
   ProfileController({required ProfileRepository profiles}) : _profiles = profiles;
 
-  Future<Profile?> getByEmail(String email) => _profiles.getByEmail(email);
   Future<Profile?> getById(String id) => _profiles.getById(id);
 }

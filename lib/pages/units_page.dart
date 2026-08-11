@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sentinela/core/app_routes.dart';
 import 'package:sentinela/widgets/list/my_units_list.dart';
+import 'package:sentinela/widgets/list/pending_invites.dart';
 import 'package:sentinela/widgets/scaffold/internal_scaffold.dart';
 import 'package:sentinela/widgets/title/page_title.dart';
 import 'package:sentinela/widgets/title/secondary_title.dart';
@@ -36,6 +37,7 @@ class UnitsPage extends StatelessWidget {
               ),
             ),
           ),
+          const PendingInvites(),
           const SecondaryTitle(title: 'Minhas Unidades'),
           const MyUnitsList(),
         ],

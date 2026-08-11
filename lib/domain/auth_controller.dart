@@ -68,6 +68,15 @@ class AuthController {
     }
   }
 
+  Future<Result<void>> resendEmailVerification() async {
+    try {
+      await _auth.sendEmailVerification();
+      return const Success(null);
+    } on AppError catch (e) {
+      return Failure(e);
+    }
+  }
+
   Future<Result<void>> deleteAccount(String password) async {
     try {
       await _auth.reauthenticate(password);

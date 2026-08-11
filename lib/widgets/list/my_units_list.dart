@@ -14,9 +14,22 @@ class MyUnitsList extends StatefulWidget {
 
 class _MyUnitsListState extends State<MyUnitsList> {
   final List<Widget> _units = [];
+  String? _error;
 
   Future<void> _loadUnits() async {
-    final permissions = await ServiceLocator.instance.units.getMyPermissions();
+    setState(() {
+      _units.clear();
+      _error = null;
+    });
+
+    final List<Permission> permissions;
+    try {
+      permissions = await ServiceLocator.instance.units.getMyPermissions();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.toString());
+      return;
+    }
     if (!mounted) return;
 
     final widgets = <Widget>[];
@@ -116,6 +129,21 @@ class _MyUnitsListState extends State<MyUnitsList> {
 
   @override
   Widget build(BuildContext context) {
+    if (_error != null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Erro ao carregar unidades: $_error',
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+          TextButton(
+            onPressed: _loadUnits,
+            child: const Text('Tentar novamente'),
+          ),
+        ],
+      );
+    }
     return Wrap(children: _units);
   }
 }

@@ -25,6 +25,14 @@ class FirebaseAuthRepository implements AuthRepository {
     } on FirebaseAuthException {
       throw const AuthError('Email ou senha incorretos');
     }
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        await user.reload();
+      } on FirebaseAuthException {
+        // estado local permanece; verificação é best-effort
+      }
+    }
   }
 
   @override
@@ -72,10 +80,11 @@ class FirebaseAuthRepository implements AuthRepository {
       throw const AuthError('Usuário não autenticado');
     }
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
+      final credential = EmailAuthProvider.credential(
         email: user.email ?? '',
         password: password,
       );
+      await user.reauthenticateWithCredential(credential);
     } on FirebaseAuthException {
       throw const AuthError('Falha ao remover, verifique sua senha');
     }
@@ -99,17 +108,6 @@ class FirebaseProfileRepository implements ProfileRepository {
     final snap = await _db.collection(AppCollections.profiles).doc(id).get();
     if (!snap.exists) return null;
     return Profile.fromMap(snap.id, snap.data() ?? {});
-  }
-
-  @override
-  Future<Profile?> getByEmail(String email) async {
-    final q = await _db
-        .collection(AppCollections.profiles)
-        .where(AppFields.email, isEqualTo: email)
-        .limit(1)
-        .get();
-    if (q.docs.isEmpty) return null;
-    return Profile.fromMap(q.docs.first.id, q.docs.first.data());
   }
 
   @override

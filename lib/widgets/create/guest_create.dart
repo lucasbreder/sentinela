@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:sentinela/core/app_routes.dart';
 import 'package:sentinela/core/service_locator.dart';
-import 'package:sentinela/data/models/profile.dart';
 import 'package:sentinela/widgets/title/secondary_title.dart';
 
 class UnitGuestCreate extends StatefulWidget {
@@ -15,7 +14,6 @@ class UnitGuestCreate extends StatefulWidget {
 }
 
 class _UnitGuestCreateState extends State<UnitGuestCreate> {
-  String _formFeedback = '';
   String _email = '';
   DateTime? _expiresAt;
 
@@ -47,36 +45,16 @@ class _UnitGuestCreateState extends State<UnitGuestCreate> {
   Future<void> _grantAccess() async {
     if (!_formKey.currentState!.validate()) return;
 
-    try {
-      final Profile? userProfile =
-          await ServiceLocator.instance.profiles.getByEmail(_email);
-      if (userProfile == null) {
-        _showSnack('Usuário não encontrado. Verifique o e-mail');
-        return;
-      }
-
-      final isGuest =
-          await ServiceLocator.instance.units.isGuest(userProfile.id, widget.unitId);
-      final isOwner =
-          await ServiceLocator.instance.units.isOwner(userProfile.id, widget.unitId);
-
-      if (isGuest || isOwner) {
-        _showSnack('O usuário já tem acesso a essa unidade');
-        return;
-      }
-
-      final result = await ServiceLocator.instance.units
-          .addGuest(widget.unitId, userProfile.id, _expiresAt);
-      result.when(
-        success: (_) {
-          _showSnack('Acesso concedido');
-          Navigator.pushNamedAndRemoveUntil(context, AppRoutes.units, (route) => false);
-        },
-        failure: (error) => _showSnack(error.message),
-      );
-    } catch (e) {
-      _showSnack('Erro ao conceder acesso: $e');
-    }
+    final result = await ServiceLocator.instance.units
+        .createInvite(widget.unitId, _email, _expiresAt);
+    if (!mounted) return;
+    result.when(
+      success: (_) {
+        _showSnack('Convite enviado ao e-mail');
+        Navigator.pushNamedAndRemoveUntil(context, AppRoutes.units, (route) => false);
+      },
+      failure: (error) => _showSnack(error.message),
+    );
   }
 
   void _showSnack(String message) {

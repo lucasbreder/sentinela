@@ -71,4 +71,29 @@ void main() {
     expect(guests.length, 1);
     expect(guests.single.isGuest, isTrue);
   });
+
+  test('createInvite registra convite sem expor perfil', () async {
+    await controller.createUnit('Condomínio A');
+    final result = await controller.createInvite('u-1', 'convidado@x.com', null);
+    expect(result, isA<Success<void>>());
+    expect(units.invites.single.email, 'convidado@x.com');
+    expect(units.invites.single.unitId, 'u-1');
+  });
+
+  test('getPendingInvites devolve convites do usuário', () async {
+    await controller.createUnit('Condomínio A');
+    await controller.createInvite('u-1', 'convidado@x.com', null);
+    final pending = await controller.getPendingInvites();
+    expect(pending.length, 1);
+    expect(pending.single.unitName, 'Condomínio A');
+  });
+
+  test('acceptInvite cria permissão de convidado e remove o convite', () async {
+    await controller.createUnit('Condomínio A');
+    await controller.createInvite('u-1', 'convidado@x.com', null);
+    final result = await controller.acceptInvite('u-1');
+    expect(result, isA<Success<void>>());
+    expect(units.invites, isEmpty);
+    expect(units.permissions.any((p) => p.isGuest && p.unitId == 'u-1'), isTrue);
+  });
 }

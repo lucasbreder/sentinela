@@ -21,6 +21,48 @@ class _LoginState extends State<Login> {
 
   final _formKey = GlobalKey<FormState>();
 
+  void _showEmailConfirmationDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Confirme seu e-mail'),
+        content: const Text(
+          'Verifique sua caixa de entrada (e a pasta de spam) e '
+          'confirme seu e-mail antes de entrar.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              final result = await ServiceLocator.instance.auth
+                  .resendEmailVerification();
+              if (!dialogContext.mounted) return;
+              result.when(
+                success: (_) {
+                  ScaffoldMessenger.of(dialogContext).showSnackBar(
+                    const SnackBar(
+                      content: Text('E-mail de confirmação reenviado'),
+                    ),
+                  );
+                },
+                failure: (error) {
+                  ScaffoldMessenger.of(dialogContext).showSnackBar(
+                    SnackBar(content: Text(error.message)),
+                  );
+                },
+              );
+              Navigator.pop(dialogContext);
+            },
+            child: const Text('Reenviar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -132,15 +174,7 @@ class _LoginState extends State<Login> {
                                   success: (_) {
                                     if (!ServiceLocator
                                         .instance.auth.isEmailVerified) {
-                                      setState(() {
-                                        _loginFeedback =
-                                            'Confirme seu e-mail antes de entrar';
-                                      });
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text(_loginFeedback),
-                                        ),
-                                      );
+                                      _showEmailConfirmationDialog();
                                       return;
                                     }
                                     Navigator.pushNamed(

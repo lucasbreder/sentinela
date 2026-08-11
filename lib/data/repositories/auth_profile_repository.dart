@@ -16,6 +16,5 @@ abstract class AuthRepository {
 
 abstract class ProfileRepository {
   Future<Profile?> getById(String id);
-  Future<Profile?> getByEmail(String email);
   Future<void> create(Profile profile);
 }
