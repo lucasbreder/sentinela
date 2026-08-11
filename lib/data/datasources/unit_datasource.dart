@@ -19,6 +19,7 @@ class FirebaseUnitRepository implements UnitRepository {
       AppFields.unitId: ref.id,
       AppFields.unitName: name,
       AppFields.role: UserRole.owner,
+      AppFields.ownerId: uid,
     });
     return Unit(id: ref.id, name: name, ownerId: uid);
   }
@@ -104,6 +105,7 @@ class FirebaseUnitRepository implements UnitRepository {
           AppFields.unitId: unitId,
           AppFields.unitName: unit.name,
           AppFields.role: UserRole.guest,
+          AppFields.ownerId: unit.ownerId,
           if (expiresAt != null) AppFields.expiresAt: expiresAt,
         });
   }

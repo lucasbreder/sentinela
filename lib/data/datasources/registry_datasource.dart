@@ -6,6 +6,7 @@ import 'package:sentinela/data/datasources/auth_datasource.dart';
 import 'package:sentinela/data/datasources/unit_datasource.dart';
 import 'package:sentinela/data/models/profile.dart';
 import 'package:sentinela/data/models/registry.dart';
+import 'package:sentinela/data/repositories/auth_profile_repository.dart';
 import 'package:sentinela/data/repositories/registry_repository.dart';
 import 'package:sentinela/data/repositories/unit_repository.dart';
 

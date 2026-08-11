@@ -2,7 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sentinela/core/app_errors.dart';
 import 'package:sentinela/core/result.dart';
 import 'package:sentinela/domain/auth_controller.dart';
-import 'package:sentinela/data/models/profile.dart';
 
 import 'fakes.dart';
 

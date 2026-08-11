@@ -18,6 +18,7 @@ class AuthController {
         _units = units;
 
   String? get currentUserId => _auth.currentUserId;
+  String? get currentUserEmail => _auth.currentUserEmail;
   bool get isEmailVerified => _auth.isEmailVerified;
 
   Future<Result<void>> signIn(String email, String password) async {

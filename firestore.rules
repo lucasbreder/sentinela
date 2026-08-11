@@ -9,6 +9,8 @@ service cloud.firestore {
     }
 
     // Dono é definido pelo campo owner_id no documento da unidade.
+    // get() aqui só é usado em regras de operação pontual (escrita/leitura
+    // direta), NUNCA em consultas de collection group.
     function isOwner(unitId) {
       return get(/databases/$(database)/documents/units/$(unitId)).data.owner_id == request.auth.uid;
     }
@@ -32,23 +34,32 @@ service cloud.firestore {
       // Criar unidade: usuário autenticado vira dono (owner_id = próprio uid).
       allow create: if signedIn() && request.resource.data.owner_id == request.auth.uid;
       // Leitura para dono e convidados; alteração/exclusão somente do dono.
-      allow read: if signedIn() && isMember(unitId);
-      allow update, delete: if signedIn() && isOwner(unitId);
+      // Usa resource (não get) p/ evitar recursão no próprio doc.
+      allow read: if signedIn() &&
+        (resource.data.owner_id == request.auth.uid ||
+         exists(/databases/$(database)/documents/units/$(unitId)/permissions/$(request.auth.uid)));
+      allow update, delete: if signedIn() && resource.data.owner_id == request.auth.uid;
 
       match /permissions/{permId} {
-        // Dono cria/atualiza convites e a própria permissão de dono.
+        // Escritas: somente o dono da unidade (get é permitido em operações pontuais).
         allow create, update: if signedIn() && isOwner(unitId);
-        // Excluir: dono, ou o próprio usuário removendo a própria permissão
-        // (necessário para exclusão de conta).
         allow delete: if signedIn() && (isOwner(unitId) || request.auth.uid == resource.data.user_id);
-        // Ler: o próprio titular ou o dono da unidade (gestão de convidados).
-        allow read: if signedIn() && (request.auth.uid == resource.data.user_id || isOwner(unitId));
       }
 
       match /registries/{regId} {
-        // Registros (entrada/saída) somente para membros da unidade.
+        // Registros (entrada/saída) somente para membros. Queries diretas
+        // (subcoleção) permitem get()/exists().
         allow read, write: if signedIn() && isMember(unitId);
       }
+    }
+
+    // Collection group de permissions: leitura via wildcard recursivo e SEM
+    // get()/exists() (obrigatório). Cobre getMyPermissions, getGuestPermissions,
+    // getUnitGuests e os checks defensivos isGuest/isMember.
+    match /{path=**}/permissions/{permId} {
+      allow read: if signedIn() &&
+        (request.auth.uid == resource.data.user_id ||
+         resource.data.owner_id == request.auth.uid);
     }
   }
 }

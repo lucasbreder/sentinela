@@ -8,6 +8,7 @@ class Permission {
     required this.unitId,
     required this.unitName,
     required this.role,
+    this.ownerId,
     this.expiresAt,
   });
 
@@ -16,6 +17,7 @@ class Permission {
   final String unitId;
   final String unitName;
   final String role;
+  final String? ownerId;
   final DateTime? expiresAt;
 
   bool get isOwner => role == UserRole.owner;
@@ -27,6 +29,7 @@ class Permission {
         unitId: data[AppFields.unitId] ?? '',
         unitName: data[AppFields.unitName] ?? '',
         role: data[AppFields.role] ?? UserRole.guest,
+        ownerId: data[AppFields.ownerId],
         expiresAt: data[AppFields.expiresAt] as DateTime?,
       );
 
@@ -35,6 +38,7 @@ class Permission {
         AppFields.unitId: unitId,
         AppFields.unitName: unitName,
         AppFields.role: role,
+        if (ownerId != null) AppFields.ownerId: ownerId,
         if (expiresAt != null) AppFields.expiresAt: expiresAt,
       };
 
