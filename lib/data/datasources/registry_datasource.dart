@@ -7,6 +7,7 @@ import 'package:sentinela/data/datasources/unit_datasource.dart';
 import 'package:sentinela/data/models/profile.dart';
 import 'package:sentinela/data/models/registry.dart';
 import 'package:sentinela/data/repositories/auth_profile_repository.dart';
+import 'package:sentinela/data/datasources/timestamp_util.dart';
 import 'package:sentinela/data/repositories/registry_repository.dart';
 import 'package:sentinela/data/repositories/unit_repository.dart';
 
@@ -52,7 +53,8 @@ class FirebaseRegistryRepository implements RegistryRepository {
         .limit(1)
         .get();
     if (q.docs.isEmpty) return null;
-    return Registry.fromMap(q.docs.first.id, q.docs.first.data());
+    final data = normalizeTimestamps(q.docs.first.data(), [AppFields.createdAt]);
+    return Registry.fromMap(q.docs.first.id, data);
   }
 
   @override
@@ -67,6 +69,11 @@ class FirebaseRegistryRepository implements RegistryRepository {
         .orderBy(AppFields.createdAt, descending: true)
         .get();
 
-    return q.docs.map((doc) => Registry.fromMap(doc.id, doc.data())).toList();
+    return q.docs
+        .map((doc) => Registry.fromMap(
+              doc.id,
+              normalizeTimestamps(doc.data(), [AppFields.createdAt]),
+            ))
+        .toList();
   }
 }

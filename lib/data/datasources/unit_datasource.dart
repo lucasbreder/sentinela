@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:sentinela/core/app_constants.dart';
 import 'package:sentinela/core/app_errors.dart';
 import 'package:sentinela/data/models/permission.dart';
+import 'package:sentinela/data/datasources/timestamp_util.dart';
 import 'package:sentinela/data/models/unit.dart';
 import 'package:sentinela/data/repositories/unit_repository.dart';
 
@@ -76,7 +77,7 @@ class FirebaseUnitRepository implements UnitRepository {
         .where(AppFields.role, isEqualTo: UserRole.guest)
         .get();
     if (q.docs.isEmpty) return false;
-    final expiresAt = q.docs.first.data()[AppFields.expiresAt] as DateTime?;
+    final expiresAt = (q.docs.first.data()[AppFields.expiresAt] as Timestamp?)?.toDate();
     return expiresAt == null || expiresAt.isAfter(DateTime.now());
   }
 
@@ -88,7 +89,12 @@ class FirebaseUnitRepository implements UnitRepository {
         .where(AppFields.unitId, isEqualTo: unitId)
         .where(AppFields.role, isEqualTo: UserRole.guest)
         .get();
-    return q.docs.map((d) => Permission.fromMap(d.id, d.data())).toList();
+    return q.docs
+        .map((d) => Permission.fromMap(
+              d.id,
+              normalizeTimestamps(d.data(), [AppFields.expiresAt]),
+            ))
+        .toList();
   }
 
   @override
@@ -192,11 +198,21 @@ class FirebaseUnitRepository implements UnitRepository {
       return [
         ...noExpiration.docs,
         ...active.docs,
-      ].map((d) => Permission.fromMap(d.id, d.data())).toList();
+      ]
+          .map((d) => Permission.fromMap(
+                d.id,
+                normalizeTimestamps(d.data(), [AppFields.expiresAt]),
+              ))
+          .toList();
     }
 
     final q = await base.get();
-    return q.docs.map((d) => Permission.fromMap(d.id, d.data())).toList();
+    return q.docs
+        .map((d) => Permission.fromMap(
+              d.id,
+              normalizeTimestamps(d.data(), [AppFields.expiresAt]),
+            ))
+        .toList();
   }
 
   String _currentUserId() {

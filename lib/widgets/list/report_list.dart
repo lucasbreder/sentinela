@@ -187,6 +187,15 @@ class _ReportListState extends State<ReportList> {
                   );
                 }
                 final registries = snapshot.data ?? [];
+                if (snapshot.hasError) {
+                  return Container(
+                    padding: const EdgeInsets.fromLTRB(0, 15, 0, 15),
+                    child: Text(
+                      'Erro ao carregar: ${snapshot.error}',
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  );
+                }
                 if (registries.isEmpty) {
                   return Container(
                     padding: const EdgeInsets.fromLTRB(0, 15, 0, 15),
