@@ -130,12 +130,14 @@ class _ReportListState extends State<ReportList> {
                       child: Container(
                         decoration: BoxDecoration(
                           border: Border.all(
-                            color: Theme.of(context).colorScheme.surface,
-                            width: 1,
+                            color: selected
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context).colorScheme.onSurface,
+                            width: selected ? 2 : 1,
                           ),
                           borderRadius: const BorderRadius.all(Radius.circular(6)),
                           color: selected
-                              ? Theme.of(context).colorScheme.surface
+                              ? Theme.of(context).colorScheme.primary
                               : Colors.transparent,
                         ),
                         padding: const EdgeInsets.all(10),
@@ -145,7 +147,7 @@ class _ReportListState extends State<ReportList> {
                           style: TextStyle(
                             color: selected
                                 ? Colors.white
-                                : Theme.of(context).colorScheme.surface,
+                                : Theme.of(context).colorScheme.onSurface,
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                           ),
