@@ -23,9 +23,13 @@ service cloud.firestore {
 
     // ----- profiles --------------------------------------------------------
 
-    // Cada usuário só pode ler/escrever o próprio perfil (docId = uid).
+    // Perfis contêm apenas dados básicos (name, email, registry) e são
+    // necessários p/ gestão de convidados (buscar por e-mail e listar usuários
+    // de uma unidade). Leitura para qualquer usuário autenticado; escrita
+    // somente do próprio dono do perfil.
     match /profiles/{uid} {
-      allow read, write: if signedIn() && request.auth.uid == uid;
+      allow read: if signedIn();
+      allow write: if signedIn() && request.auth.uid == uid;
     }
 
     // ----- units -----------------------------------------------------------

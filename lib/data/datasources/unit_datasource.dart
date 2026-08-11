@@ -85,8 +85,9 @@ class FirebaseUnitRepository implements UnitRepository {
   Future<List<Permission>> getUnitGuests(String unitId) async {
     await _requireOwner(unitId);
     final q = await _db
-        .collectionGroup(AppCollections.permissions)
-        .where(AppFields.unitId, isEqualTo: unitId)
+        .collection(AppCollections.units)
+        .doc(unitId)
+        .collection(AppCollections.permissions)
         .where(AppFields.role, isEqualTo: UserRole.guest)
         .get();
     return q.docs
