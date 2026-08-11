@@ -140,10 +140,12 @@ class FirebaseUnitRepository implements UnitRepository {
   @override
   Future<void> deleteUnit(String unitId) async {
     await _requireOwner(unitId);
+    final ownerUid = _currentUserId();
     final permissions = await _db
         .collection(AppCollections.units)
         .doc(unitId)
         .collection(AppCollections.permissions)
+        .where(AppFields.ownerId, isEqualTo: ownerUid)
         .get();
     final registries = await _db
         .collection(AppCollections.units)
