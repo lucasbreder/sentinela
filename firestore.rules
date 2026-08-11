@@ -15,10 +15,15 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/units/$(unitId)).data.owner_id == request.auth.uid;
     }
 
-    // Membro = dono OU convidado com permissão ativa (doc de permissão = uid).
+    // Membro = dono OU convidado com permissão ATIVA (não expirada).
+    function isActiveGuest(unitId) {
+      let perm = get(/databases/$(database)/documents/units/$(unitId)/permissions/$(request.auth.uid)).data;
+      return perm != null
+        && (perm.expires_at == null || perm.expires_at > request.time);
+    }
+
     function isMember(unitId) {
-      return isOwner(unitId)
-        || exists(/databases/$(database)/documents/units/$(unitId)/permissions/$(request.auth.uid));
+      return isOwner(unitId) || isActiveGuest(unitId);
     }
 
     // ----- profiles --------------------------------------------------------
@@ -40,8 +45,7 @@ service cloud.firestore {
       // Leitura para dono e convidados; alteração/exclusão somente do dono.
       // Usa resource (não get) p/ evitar recursão no próprio doc.
       allow read: if signedIn() &&
-        (resource.data.owner_id == request.auth.uid ||
-         exists(/databases/$(database)/documents/units/$(unitId)/permissions/$(request.auth.uid)));
+        (resource.data.owner_id == request.auth.uid || isActiveGuest(unitId));
       allow update, delete: if signedIn() && resource.data.owner_id == request.auth.uid;
 
       match /permissions/{permId} {
