@@ -59,9 +59,10 @@ class FirebaseUnitRepository implements UnitRepository {
   @override
   Future<bool> isGuest(String userId, String unitId) async {
     final q = await _db
-        .collectionGroup(AppCollections.permissions)
+        .collection(AppCollections.units)
+        .doc(unitId)
+        .collection(AppCollections.permissions)
         .where(AppFields.userId, isEqualTo: userId)
-        .where(AppFields.unitId, isEqualTo: unitId)
         .where(AppFields.role, isEqualTo: UserRole.guest)
         .get();
     return q.docs.isNotEmpty;
@@ -71,9 +72,10 @@ class FirebaseUnitRepository implements UnitRepository {
   Future<bool> isMember(String userId, String unitId) async {
     if (await isOwner(userId, unitId)) return true;
     final q = await _db
-        .collectionGroup(AppCollections.permissions)
+        .collection(AppCollections.units)
+        .doc(unitId)
+        .collection(AppCollections.permissions)
         .where(AppFields.userId, isEqualTo: userId)
-        .where(AppFields.unitId, isEqualTo: unitId)
         .where(AppFields.role, isEqualTo: UserRole.guest)
         .get();
     if (q.docs.isEmpty) return false;
