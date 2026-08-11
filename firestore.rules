@@ -8,6 +8,11 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Verificação de e-mail é exigida (server-side) para acesso a dados.
+    function verified() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
     // Dono é definido pelo campo owner_id no documento da unidade.
     // get() aqui só é usado em regras de operação pontual (escrita/leitura
     // direta), NUNCA em consultas de collection group.
@@ -26,48 +31,71 @@ service cloud.firestore {
       return isOwner(unitId) || isActiveGuest(unitId);
     }
 
+    // Existe convite ativo para o e-mail verificado do solicitante nesta unidade.
+    function hasValidInvite(unitId) {
+      return verified()
+        && exists(/databases/$(database)/documents/units/$(unitId)/invites/$(request.auth.token.email));
+    }
+
     // ----- profiles --------------------------------------------------------
 
-    // Perfis contêm apenas dados básicos (name, email, registry) e são
-    // necessários p/ gestão de convidados (buscar por e-mail e listar usuários
-    // de uma unidade). Leitura para qualquer usuário autenticado; escrita
-    // somente do próprio dono do perfil.
+    // Perfil só é lido/escrito pelo próprio dono. Nenhuma informação pessoal
+    // (name, email, registry/CPF) é exposta a outros usuários.
     match /profiles/{uid} {
-      allow read: if signedIn();
+      allow read: if signedIn() && request.auth.uid == uid;
       allow write: if signedIn() && request.auth.uid == uid;
     }
 
     // ----- units -----------------------------------------------------------
 
     match /units/{unitId} {
-      // Criar unidade: usuário autenticado vira dono (owner_id = próprio uid).
-      allow create: if signedIn() && request.resource.data.owner_id == request.auth.uid;
-      // Leitura para dono e convidados; alteração/exclusão somente do dono.
-      // Usa resource (não get) p/ evitar recursão no próprio doc.
-      allow read: if signedIn() &&
-        (resource.data.owner_id == request.auth.uid || isActiveGuest(unitId));
-      allow update, delete: if signedIn() && resource.data.owner_id == request.auth.uid;
+      // Criar unidade: usuário autenticado e verificado vira dono.
+      allow create: if verified() && request.resource.data.owner_id == request.auth.uid;
+      allow read: if verified() && isMember(unitId);
+      allow update, delete: if verified() && resource.data.owner_id == request.auth.uid;
 
       match /permissions/{permId} {
-        // Escritas: somente o dono da unidade (get é permitido em operações pontuais).
-        allow create, update: if signedIn() && isOwner(unitId);
-        allow delete: if signedIn() && (isOwner(unitId) || request.auth.uid == resource.data.user_id);
+        // Dono cria/edita permissões; um convidado pode se auto-cadastrar a
+        // partir de um convite válido (sem expor perfis de terceiros).
+        allow create: if verified() &&
+          (isOwner(unitId) ||
+           (hasValidInvite(unitId)
+             && request.resource.data.user_id == request.auth.uid
+             && request.resource.data.role == 'guest'));
+        allow update: if verified() && isOwner(unitId);
+        allow delete: if verified() && (isOwner(unitId) || request.auth.uid == resource.data.user_id);
       }
 
       match /registries/{regId} {
-        // Registros (entrada/saída) somente para membros. Queries diretas
-        // (subcoleção) permitem get()/exists().
-        allow read, write: if signedIn() && isMember(unitId);
+        // Criação por membro validando autor e unidade; alteração/exclusão só
+        // do dono, preservando a integridade do log de segurança.
+        allow create: if verified() && isMember(unitId)
+          && request.resource.data.author_id == request.auth.uid
+          && request.resource.data.unit_id == unitId;
+        allow read: if verified() && isMember(unitId);
+        allow update, delete: if verified() && isOwner(unitId);
+      }
+
+      // ----- invites (convite por e-mail) ---------------------------------
+      match /invites/{email} {
+        allow create: if verified() && isOwner(unitId);
+        allow read: if verified() && (isOwner(unitId) || request.auth.token.email == email);
+        allow update, delete: if verified() && isOwner(unitId);
       }
     }
 
     // Collection group de permissions: leitura via wildcard recursivo e SEM
-    // get()/exists() (obrigatório). Cobre getMyPermissions, getGuestPermissions,
-    // getUnitGuests e os checks defensivos isGuest/isMember.
+    // get()/exists(). Cobre getMyPermissions, getGuestPermissions e checks
+    // defensivos isMember/isOwner.
     match /{path=**}/permissions/{permId} {
-      allow read: if signedIn() &&
+      allow read: if verified() &&
         (request.auth.uid == resource.data.user_id ||
          resource.data.owner_id == request.auth.uid);
+    }
+
+    // Collection group de invites: o convidado enxerga só os próprios convites.
+    match /{path=**}/invites/{email} {
+      allow read: if verified() && request.auth.token.email == email;
     }
   }
 }
