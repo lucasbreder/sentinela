@@ -1,5 +1,4 @@
 import 'package:sentinela/data/models/permission.dart';
-import 'package:sentinela/data/models/profile.dart';
 import 'package:sentinela/data/models/unit.dart';
 
 abstract class UnitRepository {

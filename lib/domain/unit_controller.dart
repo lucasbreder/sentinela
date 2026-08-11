@@ -21,6 +21,8 @@ class UnitController {
       return Success(await _units.createUnit(name));
     } on AppError catch (e) {
       return Failure(e);
+    } catch (e) {
+      return Failure(OperationError('Não foi possível criar a unidade'));
     }
   }
 
@@ -34,6 +36,8 @@ class UnitController {
       return const Success(null);
     } on AppError catch (e) {
       return Failure(e);
+    } catch (e) {
+      return Failure(OperationError('Não foi possível conceder acesso'));
     }
   }
 
@@ -43,6 +47,8 @@ class UnitController {
       return const Success(null);
     } on AppError catch (e) {
       return Failure(e);
+    } catch (e) {
+      return Failure(OperationError('Não foi possível remover o acesso'));
     }
   }
 
@@ -52,6 +58,8 @@ class UnitController {
       return const Success(null);
     } on AppError catch (e) {
       return Failure(e);
+    } catch (e) {
+      return Failure(OperationError('Não foi possível excluir a unidade'));
     }
   }
 }

@@ -144,16 +144,23 @@ class FirebaseUnitRepository implements UnitRepository {
         .collection(AppCollections.registries)
         .get();
 
-    final batch = _db.batch();
     final unitRef = _db.collection(AppCollections.units).doc(unitId);
-    for (final p in permissions.docs) {
-      batch.delete(unitRef.collection(AppCollections.permissions).doc(p.id));
+
+    // Um batch do Firestore aceita no máximo 500 escritas; unidades grandes
+    // exigem dividir a exclusão em lotes. A unidade é excluída por último.
+    final refsToDelete = <DocumentReference<Map<String, dynamic>>>[
+      ...permissions.docs.map((p) => unitRef.collection(AppCollections.permissions).doc(p.id)),
+      ...registries.docs.map((r) => unitRef.collection(AppCollections.registries).doc(r.id)),
+    ];
+    const chunk = 400;
+    for (var i = 0; i < refsToDelete.length; i += chunk) {
+      final batch = _db.batch();
+      for (final ref in refsToDelete.skip(i).take(chunk)) {
+        batch.delete(ref);
+      }
+      await batch.commit();
     }
-    for (final r in registries.docs) {
-      batch.delete(unitRef.collection(AppCollections.registries).doc(r.id));
-    }
-    batch.delete(unitRef);
-    await batch.commit();
+    await unitRef.delete();
   }
 
   @override

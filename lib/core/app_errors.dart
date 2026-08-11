@@ -27,3 +27,7 @@ class StorageError extends AppError {
 class ForbiddenError extends AppError {
   const ForbiddenError(super.message);
 }
+
+class OperationError extends AppError {
+  const OperationError(super.message);
+}
