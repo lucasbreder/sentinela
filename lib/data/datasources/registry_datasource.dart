@@ -30,11 +30,15 @@ class FirebaseRegistryRepository implements RegistryRepository {
     if (!await _units.isMember(uid, registry.unitId)) {
       throw const ForbiddenError('Sem permissão para registrar nesta unidade');
     }
+    final author = await _profileRepository.getById(registry.authorId);
+    final data = registry
+        .copyWith(authorName: author?.name, authorRegistry: author?.registry)
+        .toMap();
     await _db
         .collection(AppCollections.units)
         .doc(registry.unitId)
         .collection(AppCollections.registries)
-        .add(registry.toMap());
+        .add(data);
   }
 
   @override
@@ -63,14 +67,6 @@ class FirebaseRegistryRepository implements RegistryRepository {
         .orderBy(AppFields.createdAt, descending: true)
         .get();
 
-    final registries = <Registry>[];
-    for (final doc in q.docs) {
-      final registry = Registry.fromMap(doc.id, doc.data());
-      final profile = await _profileRepository.getById(registry.authorId);
-      registries.add(
-        registry.copyWith(authorName: profile?.name, authorRegistry: profile?.registry),
-      );
-    }
-    return registries;
+    return q.docs.map((doc) => Registry.fromMap(doc.id, doc.data())).toList();
   }
 }

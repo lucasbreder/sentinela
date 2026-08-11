@@ -51,6 +51,8 @@ class Registry {
         AppFields.notes: notes,
         AppFields.authorId: authorId,
         AppFields.createdAt: createdAt,
+        if (authorName != null) AppFields.name: authorName,
+        if (authorRegistry != null) AppFields.registry: authorRegistry,
       };
 
   Registry copyWith({String? authorName, String? authorRegistry}) => Registry(
