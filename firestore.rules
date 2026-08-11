@@ -80,7 +80,8 @@ service cloud.firestore {
       match /invites/{email} {
         allow create: if verified() && isOwner(unitId);
         allow read: if verified() && (isOwner(unitId) || request.auth.token.email == email);
-        allow update, delete: if verified() && isOwner(unitId);
+        allow update, delete: if verified() &&
+          (isOwner(unitId) || request.auth.token.email == email);
       }
     }
 

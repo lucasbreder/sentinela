@@ -1,3 +1,4 @@
+import 'package:sentinela/data/models/invite.dart';
 import 'package:sentinela/data/models/permission.dart';
 import 'package:sentinela/data/models/unit.dart';
 
@@ -14,4 +15,9 @@ abstract class UnitRepository {
   Future<void> deleteGuest(String unitId, String permissionId);
   Future<void> deleteUnit(String unitId);
   Future<void> removeUserFromAllUnits(String userId);
+  Future<void> createInvite(String unitId, String email, DateTime? expiresAt);
+  Future<List<Invite>> getPendingInvites();
+  Future<List<Invite>> getUnitInvites(String unitId);
+  Future<void> acceptInvite(String unitId);
+  Future<void> deleteInvite(String unitId, String email);
 }

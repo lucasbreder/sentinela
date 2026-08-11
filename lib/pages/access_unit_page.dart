@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:sentinela/core/app_routes.dart';
 import 'package:sentinela/core/service_locator.dart';
+import 'package:sentinela/data/models/invite.dart';
 import 'package:sentinela/data/models/permission.dart';
-import 'package:sentinela/data/models/profile.dart';
 import 'package:sentinela/helpers/format_date.dart';
 import 'package:sentinela/pages/create_guest_units_page.dart';
 import 'package:sentinela/widgets/scaffold/internal_scaffold.dart';
@@ -20,86 +20,58 @@ class AccessUnitPage extends StatefulWidget {
 }
 
 class _AccessUnitPageState extends State<AccessUnitPage> {
-  final List<Widget> _guestsList = [];
+  List<Permission> _guests = [];
+  List<Invite> _invites = [];
+  bool _loading = true;
 
-  Future<void> _loadGuests() async {
+  Future<void> _load() async {
     final permissions = await ServiceLocator.instance.units.getUnitGuests(widget.unitId);
+    final invites = await ServiceLocator.instance.units.getUnitInvites(widget.unitId);
     if (!mounted) return;
-
-    final widgets = <Widget>[];
-    for (final permission in permissions) {
-      final Profile? profile =
-          await ServiceLocator.instance.profiles.getById(permission.userId);
-      widgets.add(_buildGuestTile(permission, profile));
-    }
-
     setState(() {
-      _guestsList
-        ..clear()
-        ..addAll(widgets);
+      _guests = permissions;
+      _invites = invites;
+      _loading = false;
     });
   }
 
-  Widget _buildGuestTile(Permission permission, Profile? profile) {
-    final context = this.context;
-    final primary = Theme.of(context).colorScheme.primary;
-    final surface = Theme.of(context).colorScheme.surface;
-    final expiresAt = permission.expiresAt;
+  String _labelFor(String? email) => email == null || email.isEmpty ? 'Sem e-mail' : email;
 
-    return Container(
-      width: MediaQuery.of(context).size.width,
-      padding: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(width: 1, color: surface)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Column(
-            mainAxisAlignment: MainAxisAlignment.start,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                profile?.name ?? '',
-                style: TextStyle(color: primary, fontSize: 18),
-              ),
-              Text(profile?.email ?? ''),
-              Text(profile?.registry ?? ''),
-              if (expiresAt != null)
-                expiresAt.isAfter(DateTime.now())
-                    ? Text(
-                        'Acesso até ${formatDate(expiresAt)}',
-                        style: const TextStyle(fontSize: 12, color: Colors.grey),
-                      )
-                    : Text(
-                        'Expirado em: ${formatDate(expiresAt)}',
-                        style: const TextStyle(fontSize: 12, color: Colors.red),
-                      ),
-            ],
-          ),
-          GestureDetector(
-            onTap: () => _removeGuest(permission),
-            child: Icon(
-              Icons.person_remove_outlined,
-              color: primary,
-              size: 32.0,
-              semanticLabel: 'Remover Acesso',
-            ),
+  Widget _expiryText(DateTime? expiresAt) {
+    if (expiresAt == null) return const SizedBox.shrink();
+    return expiresAt.isAfter(DateTime.now())
+        ? Text(
+            'Acesso até ${formatDate(expiresAt)}',
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
           )
-        ],
-      ),
-    );
+        : Text(
+            'Expirado em: ${formatDate(expiresAt)}',
+            style: const TextStyle(fontSize: 12, color: Colors.red),
+          );
   }
 
   Future<void> _removeGuest(Permission permission) async {
     await ServiceLocator.instance.units.deleteGuest(widget.unitId, permission.id);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Usuário removido')),
+      const SnackBar(content: Text('Acesso removido')),
     );
-    setState(() => _guestsList.clear());
-    await _loadGuests();
+    await _load();
+  }
+
+  Future<void> _removeInvite(Invite invite) async {
+    final result =
+        await ServiceLocator.instance.units.deleteInvite(widget.unitId, invite.email);
+    if (!mounted) return;
+    result.when(
+      success: (_) => ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Convite removido')),
+      ),
+      failure: (error) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      ),
+    );
+    await _load();
   }
 
   Future<void> _confirmDeleteUnit() async {
@@ -122,12 +94,13 @@ class _AccessUnitPageState extends State<AccessUnitPage> {
 
   @override
   void initState() {
-    _loadGuests();
+    _load();
     super.initState();
   }
 
   @override
   Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
     return InternalScaffold(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
@@ -150,21 +123,74 @@ class _AccessUnitPageState extends State<AccessUnitPage> {
                   padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
                   child: Icon(
                     Icons.person_add,
-                    color: Theme.of(context).colorScheme.primary,
+                    color: primary,
                     size: 44.0,
-                    semanticLabel: 'Conceder Acesso',
+                    semanticLabel: 'Convidar',
                   ),
                 ),
               )
             ],
           ),
+          if (_invites.isNotEmpty) ...[
+            const SecondaryTitle(title: 'Convites Pendentes'),
+            for (final invite in _invites)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(invite.email),
+                trailing: GestureDetector(
+                  onTap: () => _removeInvite(invite),
+                  child: Icon(Icons.close, color: primary, semanticLabel: 'Remover convite'),
+                ),
+              ),
+          ],
           const SecondaryTitle(title: 'Usuários com acesso'),
-          SingleChildScrollView(
-            child: Column(
-              children:
-                  _guestsList.isNotEmpty ? _guestsList : [const Text('Nenhum usuário')],
-            ),
-          ),
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.all(8),
+              child: CircularProgressIndicator(),
+            )
+          else if (_guests.isEmpty)
+            const Text('Nenhum usuário')
+          else
+            for (final permission in _guests)
+              Container(
+                width: MediaQuery.of(context).size.width,
+                padding: const EdgeInsets.only(bottom: 10),
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      width: 1,
+                      color: Theme.of(context).colorScheme.surface,
+                    ),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _labelFor(permission.email),
+                          style: TextStyle(color: primary, fontSize: 18),
+                        ),
+                        _expiryText(permission.expiresAt),
+                      ],
+                    ),
+                    GestureDetector(
+                      onTap: () => _removeGuest(permission),
+                      child: Icon(
+                        Icons.person_remove_outlined,
+                        color: primary,
+                        size: 32.0,
+                        semanticLabel: 'Remover Acesso',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           GestureDetector(
             onTap: () => showDialog<String>(
               context: context,
@@ -191,12 +217,12 @@ class _AccessUnitPageState extends State<AccessUnitPage> {
               padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
               decoration: BoxDecoration(
                 color: Colors.transparent,
-                border: Border.all(color: Theme.of(context).colorScheme.primary, width: 1),
+                border: Border.all(color: primary, width: 1),
                 borderRadius: const BorderRadius.all(Radius.circular(20)),
               ),
               child: Text(
                 'Excluir Unidade',
-                style: TextStyle(color: Theme.of(context).colorScheme.primary),
+                style: TextStyle(color: primary),
               ),
             ),
           ),

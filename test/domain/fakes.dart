@@ -1,5 +1,6 @@
 import 'package:sentinela/core/app_constants.dart';
 import 'package:sentinela/core/app_errors.dart';
+import 'package:sentinela/data/models/invite.dart';
 import 'package:sentinela/data/models/permission.dart';
 import 'package:sentinela/data/models/profile.dart';
 import 'package:sentinela/data/models/registry.dart';
@@ -75,14 +76,6 @@ class FakeProfileRepository implements ProfileRepository {
   Future<Profile?> getById(String id) async => profiles[id];
 
   @override
-  Future<Profile?> getByEmail(String email) async {
-    for (final profile in profiles.values) {
-      if (profile.email == email) return profile;
-    }
-    return null;
-  }
-
-  @override
   Future<void> create(Profile profile) async {
     profiles[profile.id] = profile;
   }
@@ -91,6 +84,7 @@ class FakeProfileRepository implements ProfileRepository {
 class FakeUnitRepository implements UnitRepository {
   final Map<String, Unit> units = {};
   final List<Permission> permissions = [];
+  final List<Invite> invites = [];
   final List<String> calls = [];
 
   @override
@@ -177,6 +171,52 @@ class FakeUnitRepository implements UnitRepository {
   @override
   Future<void> removeUserFromAllUnits(String userId) async {
     calls.add('removeUserFromAllUnits');
+  }
+
+  @override
+  Future<void> createInvite(String unitId, String email, DateTime? expiresAt) async {
+    calls.add('createInvite');
+    final unit = units[unitId];
+    invites.add(Invite(
+      email: email,
+      unitId: unitId,
+      unitName: unit?.name ?? '',
+      ownerId: unit?.ownerId,
+      expiresAt: expiresAt,
+    ));
+  }
+
+  @override
+  Future<List<Invite>> getPendingInvites() async => List.of(invites);
+
+  @override
+  Future<List<Invite>> getUnitInvites(String unitId) async =>
+      invites.where((i) => i.unitId == unitId).toList();
+
+  @override
+  Future<void> deleteInvite(String unitId, String email) async {
+    calls.add('deleteInvite');
+    invites.removeWhere((i) => i.unitId == unitId && i.email == email);
+  }
+
+  @override
+  Future<void> acceptInvite(String unitId) async {
+    calls.add('acceptInvite');
+    String? unitName;
+    for (final i in invites) {
+      if (i.unitId == unitId) {
+        unitName = i.unitName;
+        break;
+      }
+    }
+    invites.removeWhere((i) => i.unitId == unitId);
+    permissions.add(Permission(
+      id: 'p-${permissions.length + 1}',
+      userId: 'user-1',
+      unitId: unitId,
+      unitName: unitName ?? '',
+      role: UserRole.guest,
+    ));
   }
 }
 

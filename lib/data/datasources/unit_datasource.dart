@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:sentinela/core/app_constants.dart';
 import 'package:sentinela/core/app_errors.dart';
+import 'package:sentinela/data/models/invite.dart';
 import 'package:sentinela/data/models/permission.dart';
 import 'package:sentinela/data/datasources/timestamp_util.dart';
 import 'package:sentinela/data/models/unit.dart';
@@ -203,6 +204,102 @@ class FirebaseUnitRepository implements UnitRepository {
     for (final p in ownerPermissions.docs) {
       await deleteUnit(p.data()[AppFields.unitId] as String);
     }
+  }
+
+  @override
+  Future<void> createInvite(String unitId, String email, DateTime? expiresAt) async {
+    await _requireOwner(unitId);
+    final unit = await getUnit(unitId);
+    final emailNorm = email.trim().toLowerCase();
+    await _db
+        .collection(AppCollections.units)
+        .doc(unitId)
+        .collection(AppCollections.invites)
+        .doc(emailNorm)
+        .set({
+          AppFields.email: emailNorm,
+          AppFields.unitId: unitId,
+          AppFields.unitName: unit.name,
+          AppFields.ownerId: unit.ownerId,
+          if (expiresAt != null) AppFields.expiresAt: expiresAt,
+        });
+  }
+
+  @override
+  Future<void> deleteInvite(String unitId, String email) async {
+    await _requireOwner(unitId);
+    await _db
+        .collection(AppCollections.units)
+        .doc(unitId)
+        .collection(AppCollections.invites)
+        .doc(email.trim().toLowerCase())
+        .delete();
+  }
+
+  @override
+  Future<List<Invite>> getUnitInvites(String unitId) async {
+    await _requireOwner(unitId);
+    final q = await _db
+        .collection(AppCollections.units)
+        .doc(unitId)
+        .collection(AppCollections.invites)
+        .get();
+    return q.docs
+        .map((d) => Invite.fromMap(
+              d.id,
+              normalizeTimestamps(d.data(), [AppFields.expiresAt]),
+            ))
+        .toList();
+  }
+
+  @override
+  Future<List<Invite>> getPendingInvites() async {
+    final me = FirebaseAuth.instance.currentUser;
+    final email = me?.email?.trim().toLowerCase();
+    if (email == null) return const [];
+    final q = await _db
+        .collectionGroup(AppCollections.invites)
+        .where(AppFields.email, isEqualTo: email)
+        .get();
+    return q.docs
+        .map((d) => Invite.fromMap(
+              d.id,
+              normalizeTimestamps(d.data(), [AppFields.expiresAt]),
+            ))
+        .toList();
+  }
+
+  @override
+  Future<void> acceptInvite(String unitId) async {
+    final uid = _currentUserId();
+    final me = FirebaseAuth.instance.currentUser;
+    final email = me?.email?.trim().toLowerCase() ?? '';
+    final inviteRef = _db
+        .collection(AppCollections.units)
+        .doc(unitId)
+        .collection(AppCollections.invites)
+        .doc(email);
+    final inviteSnap = await inviteRef.get();
+    if (!inviteSnap.exists) {
+      throw const NotFoundError('Convite não encontrado');
+    }
+    final data = inviteSnap.data() ?? const {};
+    if (!await isMember(uid, unitId)) {
+      await _db
+          .collection(AppCollections.units)
+          .doc(unitId)
+          .collection(AppCollections.permissions)
+          .doc(uid)
+          .set({
+            AppFields.userId: uid,
+            AppFields.unitId: unitId,
+            AppFields.unitName: data[AppFields.unitName] ?? '',
+            AppFields.role: UserRole.guest,
+            AppFields.ownerId: data[AppFields.ownerId],
+            AppFields.email: email,
+          });
+    }
+    await inviteRef.delete();
   }
 
   Future<List<Permission>> _queryPermissions({

@@ -1,5 +1,6 @@
 import 'package:sentinela/core/app_errors.dart';
 import 'package:sentinela/core/result.dart';
+import 'package:sentinela/data/models/invite.dart';
 import 'package:sentinela/data/models/permission.dart';
 import 'package:sentinela/data/models/unit.dart';
 import 'package:sentinela/data/repositories/unit_repository.dart';
@@ -60,6 +61,46 @@ class UnitController {
       return Failure(e);
     } catch (e) {
       return Failure(OperationError('Não foi possível excluir a unidade'));
+    }
+  }
+
+  Future<List<Invite>> getPendingInvites() => _units.getPendingInvites();
+  Future<List<Invite>> getUnitInvites(String unitId) => _units.getUnitInvites(unitId);
+
+  Future<Result<void>> createInvite(
+    String unitId,
+    String email,
+    DateTime? expiresAt,
+  ) async {
+    try {
+      await _units.createInvite(unitId, email, expiresAt);
+      return const Success(null);
+    } on AppError catch (e) {
+      return Failure(e);
+    } catch (e) {
+      return Failure(OperationError('Não foi possível enviar o convite'));
+    }
+  }
+
+  Future<Result<void>> acceptInvite(String unitId) async {
+    try {
+      await _units.acceptInvite(unitId);
+      return const Success(null);
+    } on AppError catch (e) {
+      return Failure(e);
+    } catch (e) {
+      return Failure(OperationError('Não foi possível aceitar o convite'));
+    }
+  }
+
+  Future<Result<void>> deleteInvite(String unitId, String email) async {
+    try {
+      await _units.deleteInvite(unitId, email);
+      return const Success(null);
+    } on AppError catch (e) {
+      return Failure(e);
+    } catch (e) {
+      return Failure(OperationError('Não foi possível remover o convite'));
     }
   }
 }
