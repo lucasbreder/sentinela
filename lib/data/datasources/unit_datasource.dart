@@ -141,24 +141,30 @@ class FirebaseUnitRepository implements UnitRepository {
   Future<void> deleteUnit(String unitId) async {
     await _requireOwner(unitId);
     final ownerUid = _currentUserId();
-    final permissions = await _db
-        .collection(AppCollections.units)
-        .doc(unitId)
+    final unitRef = _db.collection(AppCollections.units).doc(unitId);
+
+    // O dono pode ler as permissões da unidade pela própria (user_id) e pelos
+    // convidados/dono (owner_id). A união cobre todas, inclusive eventuais
+    // permissões sem owner_id, evitando deixar órfãs.
+    final ownedPerms = await unitRef
         .collection(AppCollections.permissions)
         .where(AppFields.ownerId, isEqualTo: ownerUid)
         .get();
-    final registries = await _db
-        .collection(AppCollections.units)
-        .doc(unitId)
-        .collection(AppCollections.registries)
+    final selfPerms = await unitRef
+        .collection(AppCollections.permissions)
+        .where(AppFields.userId, isEqualTo: ownerUid)
         .get();
+    final permIds = <String>{
+      ...ownedPerms.docs.map((p) => p.id),
+      ...selfPerms.docs.map((p) => p.id),
+    };
 
-    final unitRef = _db.collection(AppCollections.units).doc(unitId);
+    final registries = await unitRef.collection(AppCollections.registries).get();
 
     // Um batch do Firestore aceita no máximo 500 escritas; unidades grandes
     // exigem dividir a exclusão em lotes. A unidade é excluída por último.
     final refsToDelete = <DocumentReference<Map<String, dynamic>>>[
-      ...permissions.docs.map((p) => unitRef.collection(AppCollections.permissions).doc(p.id)),
+      ...permIds.map((id) => unitRef.collection(AppCollections.permissions).doc(id)),
       ...registries.docs.map((r) => unitRef.collection(AppCollections.registries).doc(r.id)),
     ];
     const chunk = 400;
