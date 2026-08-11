@@ -68,7 +68,7 @@ class DefaultFirebaseOptions {
     projectId: 'sentinela-68110',
     storageBucket: 'sentinela-68110.appspot.com',
     iosClientId: '939168091449-u11o27rrfm8cm5kjbkasof2pk4dsijou.apps.googleusercontent.com',
-    iosBundleId: 'com.example.sentinela',
+    iosBundleId: 'com.mac.sentinela',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -78,6 +78,6 @@ class DefaultFirebaseOptions {
     projectId: 'sentinela-68110',
     storageBucket: 'sentinela-68110.appspot.com',
     iosClientId: '939168091449-u11o27rrfm8cm5kjbkasof2pk4dsijou.apps.googleusercontent.com',
-    iosBundleId: 'com.example.sentinela',
+    iosBundleId: 'com.mac.sentinela',
   );
 }

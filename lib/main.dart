@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:localization/localization.dart';
+import 'package:sentinela/core/app_routes.dart';
+import 'package:sentinela/core/service_locator.dart';
 import 'package:sentinela/pages/create_sentinel_registry_page.dart';
 import 'package:sentinela/pages/create_units_page.dart';
 import 'package:sentinela/pages/nav_page.dart';
@@ -17,6 +18,7 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  ServiceLocator.instance.init();
 
   runApp(const MyApp());
 }
@@ -24,27 +26,20 @@ void main() async {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    LocalJsonLocalization.delegate.directories = ['lib/i18n'];
-
     return MaterialApp(
       title: 'Sentinela',
-      localizationsDelegates: [
-        // delegate from flutter_localization
+      localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
-        // delegate from localization package.
-        LocalJsonLocalization.delegate,
       ],
       supportedLocales: const [
         Locale('pt', 'BR'),
       ],
       theme: ThemeData(
         fontFamily: 'Monda',
-        primaryColor: const Color.fromARGB(255, 114, 32, 59),
         scaffoldBackgroundColor: Colors.white,
         inputDecorationTheme: const InputDecorationTheme(
           labelStyle: TextStyle(
@@ -63,27 +58,26 @@ class MyApp extends StatelessWidget {
             ),
           ),
         ),
-        textTheme: const TextTheme(), colorScheme: const ColorScheme(
-          brightness: Brightness.light,
-          primary: Color.fromARGB(255, 114, 32, 59),
-          onPrimary: Color.fromARGB(255, 255, 255, 255),
-          secondary: Color.fromARGB(255, 32, 82, 139),
-          onSecondary: Color.fromARGB(255, 112, 112, 112),
-          error: Color.fromARGB(255, 181, 64, 34),
-          onError: Color.fromARGB(255, 112, 112, 112),
-          surface: Color.fromARGB(255, 230, 230, 230),
-          onSurface: Color.fromARGB(255, 112, 112, 112),
-        )
+        colorScheme: const ColorScheme.light(
+          primary: Color(0xFF72203B),
+          onPrimary: Color(0xFFFFFFFF),
+          secondary: Color(0xFF20528B),
+          onSecondary: Color(0xFF707070),
+          error: Color(0xFFB54022),
+          onError: Color(0xFF707070),
+          surface: Color(0xFFE6E6E6),
+          onSurface: Color(0xFF707070),
+        ),
       ),
       routes: {
-        '/': (context) => const Login(),
-        '/units': (context) => const UnitsPage(),
-        '/signin': (context) => const SignInPage(),
-        '/createUnit': (context) => const CreateUnitsPage(),
-        '/createCarRegistry': (context) => const CreateSentinelRegistryPage(),
-        '/nav': (context) => const NavPage(),
-        '/report': (context) => const ReportPage(),
-        '/profile': (context) => const ProfilePage(),
+        AppRoutes.login: (context) => const Login(),
+        AppRoutes.units: (context) => const UnitsPage(),
+        AppRoutes.signin: (context) => const SignInPage(),
+        AppRoutes.createUnit: (context) => const CreateUnitsPage(),
+        AppRoutes.createCarRegistry: (context) => const CreateSentinelRegistryPage(),
+        AppRoutes.nav: (context) => const NavPage(),
+        AppRoutes.report: (context) => const ReportPage(),
+        AppRoutes.profile: (context) => const ProfilePage(),
       },
     );
   }

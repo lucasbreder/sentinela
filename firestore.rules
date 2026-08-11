@@ -1,0 +1,54 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ----- helpers ---------------------------------------------------------
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Dono é definido pelo campo owner_id no documento da unidade.
+    function isOwner(unitId) {
+      return get(/databases/$(database)/documents/units/$(unitId)).data.owner_id == request.auth.uid;
+    }
+
+    // Membro = dono OU convidado com permissão ativa (doc de permissão = uid).
+    function isMember(unitId) {
+      return isOwner(unitId)
+        || exists(/databases/$(database)/documents/units/$(unitId)/permissions/$(request.auth.uid));
+    }
+
+    // ----- profiles --------------------------------------------------------
+
+    // Cada usuário só pode ler/escrever o próprio perfil (docId = uid).
+    match /profiles/{uid} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
+    // ----- units -----------------------------------------------------------
+
+    match /units/{unitId} {
+      // Criar unidade: usuário autenticado vira dono (owner_id = próprio uid).
+      allow create: if signedIn() && request.resource.data.owner_id == request.auth.uid;
+      // Leitura para dono e convidados; alteração/exclusão somente do dono.
+      allow read: if signedIn() && isMember(unitId);
+      allow update, delete: if signedIn() && isOwner(unitId);
+
+      match /permissions/{permId} {
+        // Dono cria/atualiza convites e a própria permissão de dono.
+        allow create, update: if signedIn() && isOwner(unitId);
+        // Excluir: dono, ou o próprio usuário removendo a própria permissão
+        // (necessário para exclusão de conta).
+        allow delete: if signedIn() && (isOwner(unitId) || request.auth.uid == resource.data.user_id);
+        // Ler: o próprio titular ou o dono da unidade (gestão de convidados).
+        allow read: if signedIn() && (request.auth.uid == resource.data.user_id || isOwner(unitId));
+      }
+
+      match /registries/{regId} {
+        // Registros (entrada/saída) somente para membros da unidade.
+        allow read, write: if signedIn() && isMember(unitId);
+      }
+    }
+  }
+}

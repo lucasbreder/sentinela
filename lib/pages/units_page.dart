@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sentinela/widgets/list/guest_units_list.dart';
+import 'package:sentinela/core/app_routes.dart';
 import 'package:sentinela/widgets/list/my_units_list.dart';
 import 'package:sentinela/widgets/scaffold/internal_scaffold.dart';
 import 'package:sentinela/widgets/title/page_title.dart';
@@ -20,7 +20,7 @@ class UnitsPage extends StatelessWidget {
           ),
           GestureDetector(
             onTap: () {
-              Navigator.pushNamed(context, '/createUnit');
+              Navigator.pushNamed(context, AppRoutes.createUnit);
             },
             child: Container(
               padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),

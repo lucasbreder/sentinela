@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sentinela/core/app_routes.dart';
 import 'package:sentinela/widgets/scaffold/nav_scaffold.dart';
 
 class NavPage extends StatelessWidget {
@@ -12,7 +13,7 @@ class NavPage extends StatelessWidget {
         children: [
           GestureDetector(
             onTap: () {
-              Navigator.pushNamed(context, '/createCarRegistry');
+              Navigator.pushNamed(context, AppRoutes.createCarRegistry);
             },
             child: const Text(
               'Criar Registro',
@@ -25,7 +26,7 @@ class NavPage extends StatelessWidget {
           ),
           GestureDetector(
             onTap: () {
-              Navigator.pushNamed(context, '/units');
+              Navigator.pushNamed(context, AppRoutes.units);
             },
             child: const Text(
               'Unidades',
@@ -38,7 +39,7 @@ class NavPage extends StatelessWidget {
           ),
           GestureDetector(
             onTap: () {
-              Navigator.pushNamed(context, '/report');
+              Navigator.pushNamed(context, AppRoutes.report);
             },
             child: const Text(
               'Relatórios',
@@ -51,7 +52,7 @@ class NavPage extends StatelessWidget {
           ),
           GestureDetector(
             onTap: () {
-              Navigator.pushNamed(context, '/profile');
+              Navigator.pushNamed(context, AppRoutes.profile);
             },
             child: const Text(
               'Meu Perfil',

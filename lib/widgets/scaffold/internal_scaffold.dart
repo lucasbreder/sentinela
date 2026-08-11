@@ -1,9 +1,9 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:sentinela/core/app_routes.dart';
+import 'package:sentinela/core/service_locator.dart';
 
 class InternalScaffold extends StatefulWidget {
-  const InternalScaffold({Key? key, required this.child}) : super(key: key);
+  const InternalScaffold({super.key, required this.child});
 
   final Widget child;
 
@@ -14,21 +14,29 @@ class InternalScaffold extends StatefulWidget {
 class _InternalScaffoldState extends State<InternalScaffold> {
   String currentUserName = '';
 
-  void getCurrentUser() async {
-    User? currentUser = FirebaseAuth.instance.currentUser;
-    FirebaseFirestore db = FirebaseFirestore.instance;
-
-    DocumentSnapshot currentUserProfile =
-        await db.collection('profiles').doc(currentUser!.uid).get();
-
+  Future<void> _loadCurrentUserName() async {
+    final uid = ServiceLocator.instance.auth.currentUserId;
+    if (uid == null) return;
+    final profile = await ServiceLocator.instance.profiles.getById(uid);
+    if (!mounted) return;
     setState(() {
-      currentUserName = currentUserProfile.get('name');
+      currentUserName = profile?.name ?? '';
     });
+  }
+
+  Future<void> _signOut() async {
+    await ServiceLocator.instance.auth.signOut();
+    if (!mounted) return;
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      AppRoutes.login,
+      (route) => false,
+    );
   }
 
   @override
   void initState() {
-    getCurrentUser();
+    _loadCurrentUserName();
     super.initState();
   }
 
@@ -40,29 +48,20 @@ class _InternalScaffoldState extends State<InternalScaffold> {
         foregroundColor: const Color.fromARGB(255, 114, 32, 59),
         elevation: 0,
         leading: IconButton(
-          onPressed: () {
-            Navigator.pushNamed(context, '/nav');
-          },
-          icon: const Icon(
-            Icons.menu,
-          ),
+          onPressed: () => Navigator.pushNamed(context, AppRoutes.nav),
+          icon: const Icon(Icons.menu),
         ),
         actions: <Widget>[
           Row(
             children: [
               Text(
                 currentUserName,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                ),
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               IconButton(
                 icon: const Icon(Icons.exit_to_app),
                 tooltip: 'Sair',
-                onPressed: () async {
-                  await FirebaseAuth.instance.signOut();
-                  Navigator.pushNamed(context, '/');
-                },
+                onPressed: _signOut,
               ),
             ],
           )

@@ -4,6 +4,13 @@
 *.pyc
 *.swp
 .DS_Store
+
+# Firebase service account (nunca versionar)
+*firebase-adminsdk*.json
+
+# gcloud SDK instalado acidentalmente dentro do repo
+google-cloud-sdk/
+google-cloud-cli-*.tar.gz
 .atom/
 .buildlog/
 .history

@@ -1,6 +1,6 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:sentinela/controllers/forgot_password.dart';
+import 'package:sentinela/core/app_routes.dart';
+import 'package:sentinela/core/service_locator.dart';
 
 class Login extends StatefulWidget {
   const Login({Key? key}) : super(key: key);
@@ -125,24 +125,36 @@ class _LoginState extends State<Login> {
                           child: ElevatedButton(
                             onPressed: () async {
                               if (_formKey.currentState!.validate()) {
-                                try {
-                                  await FirebaseAuth.instance
-                                      .signInWithEmailAndPassword(
-                                    email: _email,
-                                    password: _password,
-                                  );
-                                  Navigator.pushNamed(context, '/units');
-                                } on FirebaseAuthException catch (e) {
-                                  if (e.toString().isNotEmpty) {
+                                final result = await ServiceLocator.instance.auth
+                                    .signIn(_email, _password);
+                                if (!mounted) return;
+                                result.when(
+                                  success: (_) {
+                                    if (!ServiceLocator
+                                        .instance.auth.isEmailVerified) {
+                                      setState(() {
+                                        _loginFeedback =
+                                            'Confirme seu e-mail antes de entrar';
+                                      });
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(_loginFeedback),
+                                        ),
+                                      );
+                                      return;
+                                    }
+                                    Navigator.pushNamed(
+                                        context, AppRoutes.units);
+                                  },
+                                  failure: (error) {
                                     setState(() {
-                                      _loginFeedback =
-                                          'Email ou senha incorretos';
+                                      _loginFeedback = error.message;
                                     });
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(content: Text(_loginFeedback)),
                                     );
-                                  }
-                                }
+                                  },
+                                );
                               }
                             },
                             child: const Text('Entrar'),
@@ -165,13 +177,28 @@ class _LoginState extends State<Login> {
                                       ),
                                       TextButton(
                                         onPressed: () async {
-                                          String resultDelete =
-                                              await forgotPassword(_email);
+                                          final result = await ServiceLocator
+                                              .instance
+                                              .auth
+                                              .sendPasswordReset(_email);
                                           if (!mounted) return;
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
-                                            SnackBar(
-                                                content: Text(resultDelete)),
+                                          result.when(
+                                            success: (_) {
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(
+                                                const SnackBar(
+                                                    content:
+                                                        Text('Email Enviado')),
+                                              );
+                                            },
+                                            failure: (error) {
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(
+                                                SnackBar(
+                                                    content:
+                                                        Text(error.message)),
+                                              );
+                                            },
                                           );
                                           return Navigator.pop(context, 'OK');
                                         },
@@ -218,7 +245,7 @@ class _LoginState extends State<Login> {
                               ),
                               child: GestureDetector(
                                 onTap: () {
-                                  Navigator.pushNamed(context, '/signin');
+                                  Navigator.pushNamed(context, AppRoutes.signin);
                                 },
                                 child: const Text(
                                   'Cadastre-se',

@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:sentinela/widgets/list/report_list.dart';
 import 'package:sentinela/widgets/scaffold/internal_scaffold.dart';

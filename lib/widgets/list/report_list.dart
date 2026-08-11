@@ -1,29 +1,15 @@
-import 'dart:io';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:open_filex/open_filex.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:sentinela/controllers/get_my_units.dart';
-import 'package:sentinela/controllers/get_report.dart';
-import 'package:sentinela/controllers/get_unit.dart';
-import 'package:sentinela/helpers/format_date.dart';
-import 'package:sentinela/widgets/list/report_pdf_item.dart';
-import 'package:sentinela/widgets/title/secondary_title.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:file_saver/file_saver.dart';
+import 'package:sentinela/core/service_locator.dart';
+import 'package:sentinela/data/models/permission.dart';
+import 'package:sentinela/data/models/registry.dart';
+import 'package:sentinela/helpers/format_date.dart';
+import 'package:sentinela/widgets/list/report_pdf_item.dart';
+import 'package:sentinela/widgets/title/secondary_title.dart';
 import 'dart:typed_data';
-
-
-void downloadPdfFile(fileBytes, fileName) async {
-      // Salvar o arquivo
-      await FileSaver.instance.saveFile(
-        name: fileName, // Nome do arquivo
-        bytes: fileBytes,
-        mimeType: MimeType.pdf, // Tipo MIME
-      );
-    }
 
 class ReportList extends StatefulWidget {
   const ReportList({super.key});
@@ -34,14 +20,78 @@ class ReportList extends StatefulWidget {
 
 class _ReportListState extends State<ReportList> {
   DateTime? _dateFilter;
+  String unitId = '';
+  String unitName = '';
 
   final dateFilterController = TextEditingController();
-  String unitId = '';
-  DocumentSnapshot? unit;
 
-  @override
-  void initState() {
-    super.initState();
+  Future<void> _pickDate() async {
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2015),
+      lastDate: DateTime(2101),
+    );
+    if (pickedDate == null) return;
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: const TimeOfDay(hour: 8, minute: 0),
+    );
+    if (pickedTime == null) return;
+    final date = pickedDate.toLocal();
+    setState(() {
+      _dateFilter = DateTime(date.year, date.month, date.day, pickedTime.hour, pickedTime.minute);
+    });
+    final formatted = DateFormat("dd/MM/yyyy 'às' HH:mm");
+    dateFilterController.text = formatted.format(_dateFilter!);
+    FocusManager.instance.primaryFocus?.unfocus();
+  }
+
+  Future<void> _savePdf(List<Registry> registries) async {
+    final pdf = pw.Document();
+    final pdfReport = registries.map(registryPdfItem).toList();
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        footer: (context) => pw.Container(
+          width: PdfPageFormat.a4.width,
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.center,
+            children: [
+              pw.SizedBox(height: 8),
+              pw.Text(
+                'Relatório criado com o app Sentinela disponível no Google Play e Apple Store',
+                style: const pw.TextStyle(fontSize: 7),
+              )
+            ],
+          ),
+        ),
+        build: (pw.Context context) => [
+          pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text(
+                'Relatório de guarda - $unitName',
+                style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
+              ),
+              pw.Text(
+                'De ${formatDate(_dateFilter!)} até ${formatDate(_dateFilter!.add(const Duration(hours: 24)))}',
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 10),
+          pw.Column(children: pdfReport)
+        ],
+      ),
+    );
+
+    final Uint8List file = await pdf.save();
+    await FileSaver.instance.saveFile(
+      name: 'Relatorio-${DateTime.now().toString()}',
+      bytes: file,
+      mimeType: MimeType.pdf,
+    );
   }
 
   @override
@@ -51,84 +101,60 @@ class _ReportListState extends State<ReportList> {
       children: [
         const SecondaryTitle(title: 'Selecione uma unidade'),
         Flexible(
-          child: FutureBuilder(
-            future: getMyUnits(),
-            builder: (context, AsyncSnapshot snapshot) {
-              if (snapshot.hasData) {
-                if (snapshot.data.length > 0) {
-                  return Column(
-                    children: [
-                      SizedBox(
-                        height:
-                            70.0 * (snapshot.data.length / 3).ceilToDouble(),
-                        child: GridView.builder(
-                            clipBehavior: Clip.none,
-                            physics: const NeverScrollableScrollPhysics(),
-                            shrinkWrap: true,
-                            gridDelegate:
-                                const SliverGridDelegateWithMaxCrossAxisExtent(
-                              maxCrossAxisExtent: 300,
-                              childAspectRatio: 3.2,
-                              crossAxisSpacing: 10,
-                              mainAxisSpacing: 20,
-                            ),
-                            itemCount: snapshot.data.length,
-                            itemBuilder: ((context, index) {
-                              final data = snapshot.data[index];
-                              return GestureDetector(
-                                onTap: () async {
-                                  setState(() {
-                                    unitId = data.get('unit_id');
-                                  });
-
-                                  final unitData = await getUnit(unitId);
-
-                                  setState(() {
-                                    unit = unitData;
-                                  });
-                                },
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    border: Border.all(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .surface,
-                                      width: 1,
-                                    ),
-                                    borderRadius: const BorderRadius.all(
-                                        Radius.circular(6)),
-                                    color: unitId == data.get('unit_id')
-                                        ? Theme.of(context)
-                                            .colorScheme
-                                            .surface
-                                        : Colors.transparent,
-                                  ),
-                                  padding: const EdgeInsets.all(10),
-                                  child: Text(
-                                    data.get('unit_name'),
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      color: unitId == data.get('unit_id')
-                                          ? Colors.white
-                                          : Theme.of(context)
-                                              .colorScheme
-                                              .surface,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            })),
+          child: FutureBuilder<List<Permission>>(
+            future: ServiceLocator.instance.units.getMyPermissions(),
+            builder: (context, snapshot) {
+              final permissions = snapshot.data ?? [];
+              if (permissions.isEmpty) return const SizedBox();
+              return SizedBox(
+                height: 70.0 * (permissions.length / 3).ceilToDouble(),
+                child: GridView.builder(
+                  clipBehavior: Clip.none,
+                  physics: const NeverScrollableScrollPhysics(),
+                  shrinkWrap: true,
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 300,
+                    childAspectRatio: 3.2,
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 20,
+                  ),
+                  itemCount: permissions.length,
+                  itemBuilder: (context, index) {
+                    final data = permissions[index];
+                    final selected = unitId == data.unitId;
+                    return GestureDetector(
+                      onTap: () => setState(() {
+                        unitId = data.unitId;
+                        unitName = data.unitName;
+                      }),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.surface,
+                            width: 1,
+                          ),
+                          borderRadius: const BorderRadius.all(Radius.circular(6)),
+                          color: selected
+                              ? Theme.of(context).colorScheme.surface
+                              : Colors.transparent,
+                        ),
+                        padding: const EdgeInsets.all(10),
+                        child: Text(
+                          data.unitName,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: selected
+                                ? Colors.white
+                                : Theme.of(context).colorScheme.surface,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
-                    ],
-                  );
-                } else {
-                  return const SizedBox();
-                }
-              } else {
-                return const SizedBox();
-              }
+                    );
+                  },
+                ),
+              );
             },
           ),
         ),
@@ -139,293 +165,162 @@ class _ReportListState extends State<ReportList> {
             labelText: 'Data e hora do início',
             helperText: 'Serão incluídas todas as movimentações feitas em 24h.',
             helperMaxLines: 4,
-            contentPadding:
-                EdgeInsets.only(top: 20), // add padding to adjust text
+            contentPadding: EdgeInsets.only(top: 20),
             isDense: true,
             prefixIcon: Padding(
-              padding: EdgeInsets.only(top: 15), // add padding to adjust icon
-              child: Icon(
-                Icons.calendar_today,
-                size: 20,
-              ),
+              padding: EdgeInsets.only(top: 15),
+              child: Icon(Icons.calendar_today, size: 20),
             ),
           ),
-          onTap: () async {
-            final DateTime? pickedDate = await showDatePicker(
-              context: context,
-              initialDate: DateTime.now(),
-              firstDate: DateTime(2015),
-              lastDate: DateTime(2101),
-            );
-
-            if (pickedDate != null) {
-              final TimeOfDay? pickedTime = await showTimePicker(
-                  context: context,
-                  initialTime: const TimeOfDay(hour: 8, minute: 0));
-              if (pickedTime != null) {
-                final date = pickedDate.toLocal();
-                setState(() {
-                  _dateFilter = DateTime(date.year, date.month, date.day,
-                      pickedTime.hour, pickedTime.minute);
-                });
-                DateFormat formatted = DateFormat("dd/MM/yyy à's' HH:mm");
-                dateFilterController.text = formatted.format(_dateFilter!);
-                FocusManager.instance.primaryFocus?.unfocus();
-              }
-            }
-          },
+          onTap: _pickDate,
         ),
-        (unitId.isNotEmpty && _dateFilter != null)
-            ? Flexible(
-                child: FutureBuilder(
-                future: getReport(_dateFilter!, unitId),
-                builder: (context, AsyncSnapshot snapshot) {
-                  if (snapshot.hasData) {
-                    if (snapshot.data.length == 0) {
-                      return Container(
-                        padding: const EdgeInsets.fromLTRB(0, 15, 0, 15),
-                        child: const Text('Sem Registros'),
-                      );
-                    } else {
-                      List<pw.Widget> pdfReport = [];
+        if (unitId.isNotEmpty && _dateFilter != null)
+          Flexible(
+            child: FutureBuilder<List<Registry>>(
+              future: ServiceLocator.instance.registries.report(_dateFilter!, unitId),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation(
+                      Theme.of(context).colorScheme.primary,
+                    ),
+                  );
+                }
+                final registries = snapshot.data ?? [];
+                if (registries.isEmpty) {
+                  return Container(
+                    padding: const EdgeInsets.fromLTRB(0, 15, 0, 15),
+                    child: const Text('Sem Registros'),
+                  );
+                }
 
-                      for (var i = 0; i < snapshot.data.length; i++) {
-                        pdfReport.add(registyPDFItem(snapshot, i));
-                      }
+                return Column(
+                  children: [
+                    GestureDetector(
+                      onTap: () => _savePdf(registries),
+                      child: Container(
+                        margin: const EdgeInsets.only(top: 20),
+                        padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary,
+                          borderRadius: const BorderRadius.all(Radius.circular(20)),
+                        ),
+                        child: const Text(
+                          'Salvar em PDF',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ),
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      addAutomaticKeepAlives: true,
+                      itemCount: registries.length,
+                      itemBuilder: (context, index) {
+                        final data = registries[index];
+                        final prevData =
+                            registries[index == 0 ? index : index - 1];
+                        final formatter = DateFormat('HH:mm:ss');
+                        final formatterDate = DateFormat('dd/MM/yyyy');
+                        final formattedHour = formatter.format(data.createdAt);
+                        final formattedDate = formatterDate.format(data.createdAt);
+                        final formattedDatePrev = formatterDate.format(prevData.createdAt);
 
-                      return Column(
-                        children: [
-                          GestureDetector(
-                            child: Container(
-                              margin: const EdgeInsets.only(top: 20),
-                              padding:
-                                  const EdgeInsets.fromLTRB(20, 10, 20, 10),
+                        return Column(
+                          children: [
+                            if (formattedDate != formattedDatePrev || index == 0)
+                              SecondaryTitle(title: formattedDate),
+                            Container(
                               decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.primary,
-                                borderRadius: const BorderRadius.all(
-                                  Radius.circular(20),
+                                border: Border(
+                                  bottom: BorderSide(
+                                    width: 1,
+                                    color: Theme.of(context).colorScheme.surface,
+                                  ),
                                 ),
                               ),
-                              child: const Text(
-                                'Salvar em PDF',
-                                style: TextStyle(color: Colors.white),
-                              ),
-                            ),
-                            onTap: () async {
-                              final pdf = pw.Document();
-
-                              pdf.addPage(
-                                pw.MultiPage(
-                                  pageFormat: PdfPageFormat.a4,
-                                  footer: ((context) => pw.Container(
-                                      width: PdfPageFormat.a4.width,
-                                      child: pw.Column(
-                                        crossAxisAlignment:
-                                            pw.CrossAxisAlignment.center,
-                                        children: [
-                                          pw.SizedBox(
-                                            height: 8,
-                                          ),
-                                          pw.Text(
-                                            'Relatório criado com o app Sentinela disponível no Google Play e Apple Store',
-                                            style: const pw.TextStyle(
-                                              fontSize: 7,
-                                            ),
-                                          )
-                                        ],
-                                      ))),
-                                  build: (pw.Context context) => [
-                                    pw.Column(
-                                      mainAxisSize: pw.MainAxisSize.max,
-                                      mainAxisAlignment:
-                                          pw.MainAxisAlignment.start,
-                                      crossAxisAlignment:
-                                          pw.CrossAxisAlignment.start,
-                                      children: [
-                                        if (unit != null)
-                                          pw.Text(
-                                            'Relatório de guarda - ${unit!.get('name')}',
-                                            style: pw.TextStyle(
-                                              fontSize: 20,
-                                              fontWeight: pw.FontWeight.bold,
-                                            ),
-                                          ),
-                                        pw.Text(
-                                            "De ${formatDate(_dateFilter.toString())} até ${formatDate(_dateFilter!.add(const Duration(hours: 24)).toString())}"),
-                                      ],
-                                    ),
-                                    pw.SizedBox(height: 10),
-                                    pw.Column(children: pdfReport)
-                                  ],
-                                ),
-                              );
-                              Uint8List file = await pdf.save();
-                              downloadPdfFile(file, "Relatorio-${DateTime.now().toString()}.pdf");
-                            },
-                          ),
-                          ListView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              addAutomaticKeepAlives: true,
-                              itemCount: snapshot.data.length,
-                              itemBuilder: (((context, index) {
-                                final data = snapshot.data[index];
-                                final prevData = snapshot
-                                    .data[index == 0 ? index : index - 1];
-                                final DateFormat formatter =
-                                    DateFormat('HH:mm:ss');
-                                final DateFormat formatterDate =
-                                    DateFormat('dd/MM/yyyy');
-                                final itemDate = DateTime.parse(
-                                    data['created_at'].toDate().toString());
-                                final prevDate = DateTime.parse(
-                                    prevData['created_at'].toDate().toString());
-                                final formattedHour =
-                                    formatter.format(itemDate);
-                                final formattedDate =
-                                    formatterDate.format(itemDate);
-                                final formattedDatePrev =
-                                    formatterDate.format(prevDate);
-                                return Column(
-                                  children: [
-                                    formattedDate != formattedDatePrev ||
-                                            index == 0
-                                        ? SecondaryTitle(title: formattedDate)
-                                        : const SizedBox(),
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        border: Border(
-                                          bottom: BorderSide(
-                                              width: 1,
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .surface),
+                              padding: const EdgeInsets.all(2),
+                              child: Column(
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        data.licensePlate,
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w600,
+                                          color: Theme.of(context).colorScheme.primary,
                                         ),
                                       ),
-                                      padding: const EdgeInsets.all(2),
-                                      child: Column(
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Text(
-                                                data['license_plate'],
-                                                style: TextStyle(
-                                                  fontSize: 18,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: Theme.of(context)
-                                                      .colorScheme
-                                                      .primary,
-                                                ),
-                                              ),
-                                              const SizedBox(
-                                                width: 10,
-                                              ),
-                                              Text(formattedHour),
-                                            ],
-                                          ),
-                                          Row(
-                                            children: [
-                                              Text(
-                                                data['license_plate'],
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                              const SizedBox(
-                                                width: 10,
-                                              ),
-                                              Text(data['driver']),
-                                              const SizedBox(
-                                                width: 10,
-                                              ),
-                                              Text(
-                                                data['document_number'],
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.w600,
-                                                  color: Theme.of(context)
-                                                      .colorScheme
-                                                      .primary,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          SizedBox(
-                                            width: MediaQuery.of(context)
-                                                .size
-                                                .width,
-                                            child: data['notes']
-                                                    .toString()
-                                                    .isNotEmpty
-                                                ? Container(
-                                                    margin:
-                                                        const EdgeInsets.only(
-                                                            top: 5),
-                                                    child: Text(
-                                                      data['notes'],
-                                                      style: const TextStyle(
-                                                          fontSize: 12),
-                                                    ),
-                                                  )
-                                                : const SizedBox(),
-                                          ),
-                                          SizedBox(
-                                            width: MediaQuery.of(context)
-                                                .size
-                                                .width,
-                                            child: Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.end,
-                                              children: [
-                                                const Text(
-                                                  "Sentinela",
-                                                  style: TextStyle(
-                                                      fontSize: 8,
-                                                      fontWeight:
-                                                          FontWeight.bold),
-                                                ),
-                                                const SizedBox(
-                                                  width: 5,
-                                                ),
-                                                Text(
-                                                  data['user']['name'],
-                                                  style: const TextStyle(
-                                                    fontSize: 8,
-                                                  ),
-                                                ),
-                                                const SizedBox(
-                                                  width: 5,
-                                                ),
-                                                Text(
-                                                  data['user']['registry'],
-                                                  style: const TextStyle(
-                                                    fontSize: 8,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          )
-                                        ],
+                                      const SizedBox(width: 10),
+                                      Text(formattedHour),
+                                    ],
+                                  ),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        data.licensePlate,
+                                        style: const TextStyle(fontWeight: FontWeight.w600),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Text(data.driver),
+                                      const SizedBox(width: 10),
+                                      Text(
+                                        data.documentNumber,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          color: Theme.of(context).colorScheme.primary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  if (data.notes.isNotEmpty)
+                                    Container(
+                                      margin: const EdgeInsets.only(top: 5),
+                                      width: MediaQuery.of(context).size.width,
+                                      child: Text(
+                                        data.notes,
+                                        style: const TextStyle(fontSize: 12),
                                       ),
                                     ),
-                                  ],
-                                );
-                              }))),
-                          const SizedBox(
-                            height: 40,
-                          )
-                        ],
-                      );
-                    }
-                  } else {
-                    return CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation(
-                        Theme.of(context).colorScheme.primary,
-                      ),
-                    );
-                  }
-                },
-              ))
-            : const SizedBox()
+                                  SizedBox(
+                                    width: MediaQuery.of(context).size.width,
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        const Text(
+                                          'Sentinela',
+                                          style: TextStyle(
+                                            fontSize: 8,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 5),
+                                        Text(
+                                          data.authorName ?? '',
+                                          style: const TextStyle(fontSize: 8),
+                                        ),
+                                        const SizedBox(width: 5),
+                                        Text(
+                                          data.authorRegistry ?? '',
+                                          style: const TextStyle(fontSize: 8),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                ],
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 40)
+                  ],
+                );
+              },
+            ),
+          )
       ],
     );
   }
