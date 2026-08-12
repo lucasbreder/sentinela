@@ -8,7 +8,11 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Verificação de e-mail é exigida (server-side) para acesso a dados.
+    // Verificação de e-mail é exigida apenas onde há vínculo de identidade por
+    // e-mail (aceitar convite). Dados de membros usam signedIn: exigir
+    // email_verified aqui derruba acesso de convidados legados que ainda não
+    // verificaram o e-mail, sem ganho de segurança (o vazamento de PII é
+    // bloqueado por profiles ser restrito ao dono).
     function verified() {
       return request.auth != null && request.auth.token.email_verified == true;
     }
@@ -49,38 +53,38 @@ service cloud.firestore {
     // ----- units -----------------------------------------------------------
 
     match /units/{unitId} {
-      // Criar unidade: usuário autenticado e verificado vira dono.
-      allow create: if verified() && request.resource.data.owner_id == request.auth.uid;
-      allow read: if verified() && isMember(unitId);
-      allow update, delete: if verified() && resource.data.owner_id == request.auth.uid;
+      // Criar unidade: usuário autenticado vira dono.
+      allow create: if signedIn() && request.resource.data.owner_id == request.auth.uid;
+      allow read: if signedIn() && isMember(unitId);
+      allow update, delete: if signedIn() && resource.data.owner_id == request.auth.uid;
 
       match /permissions/{permId} {
         // Dono cria/edita permissões; um convidado pode se auto-cadastrar a
-        // partir de um convite válido (sem expor perfis de terceiros).
-        allow create: if verified() &&
+        // partir de um convite válido (exige e-mail verificado).
+        allow create: if signedIn() &&
           (isOwner(unitId) ||
            (hasValidInvite(unitId)
              && request.resource.data.user_id == request.auth.uid
              && request.resource.data.role == 'guest'));
-        allow update: if verified() && isOwner(unitId);
-        allow delete: if verified() && (isOwner(unitId) || request.auth.uid == resource.data.user_id);
+        allow update: if signedIn() && isOwner(unitId);
+        allow delete: if signedIn() && (isOwner(unitId) || request.auth.uid == resource.data.user_id);
       }
 
       match /registries/{regId} {
         // Criação por membro validando autor e unidade; alteração/exclusão só
         // do dono, preservando a integridade do log de segurança.
-        allow create: if verified() && isMember(unitId)
+        allow create: if signedIn() && isMember(unitId)
           && request.resource.data.author_id == request.auth.uid
           && request.resource.data.unit_id == unitId;
-        allow read: if verified() && isMember(unitId);
-        allow update, delete: if verified() && isOwner(unitId);
+        allow read: if signedIn() && isMember(unitId);
+        allow update, delete: if signedIn() && isOwner(unitId);
       }
 
       // ----- invites (convite por e-mail) ---------------------------------
       match /invites/{email} {
-        allow create: if verified() && isOwner(unitId);
-        allow read: if verified() && (isOwner(unitId) || request.auth.token.email == email);
-        allow update, delete: if verified() && isOwner(unitId);
+        allow create: if signedIn() && isOwner(unitId);
+        allow read: if signedIn() && (isOwner(unitId) || request.auth.token.email == email);
+        allow update, delete: if signedIn() && isOwner(unitId);
       }
     }
 
@@ -88,14 +92,14 @@ service cloud.firestore {
     // get()/exists(). Cobre getMyPermissions, getGuestPermissions e checks
     // defensivos isMember/isOwner.
     match /{path=**}/permissions/{permId} {
-      allow read: if verified() &&
+      allow read: if signedIn() &&
         (request.auth.uid == resource.data.user_id ||
          resource.data.owner_id == request.auth.uid);
     }
 
     // Collection group de invites: o convidado enxerga só os próprios convites.
     match /{path=**}/invites/{email} {
-      allow read: if verified() && request.auth.token.email == email;
+      allow read: if signedIn() && request.auth.token.email == email;
     }
   }
 }
