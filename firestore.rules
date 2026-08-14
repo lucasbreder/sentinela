@@ -28,7 +28,7 @@ service cloud.firestore {
     function isActiveGuest(unitId) {
       let perm = get(/databases/$(database)/documents/units/$(unitId)/permissions/$(request.auth.uid)).data;
       return perm != null
-        && (perm.expires_at == null || perm.expires_at > request.time);
+        && (!('expires_at' in perm) || perm.expires_at == null || perm.expires_at > request.time);
     }
 
     function isMember(unitId) {
@@ -38,7 +38,13 @@ service cloud.firestore {
     // Existe convite ativo para o e-mail verificado do solicitante nesta unidade.
     function hasValidInvite(unitId) {
       return verified()
-        && exists(/databases/$(database)/documents/units/$(unitId)/invites/$(request.auth.token.email));
+        && exists(/databases/$(database)/documents/units/$(unitId)/invites/$(request.auth.token.email.lower()));
+    }
+
+    // Dados do convite ativo do solicitante nesta unidade (para casar campos
+    // imutáveis como owner_id e expires_at na auto-cadastrada da permissão).
+    function inviteData(unitId) {
+      return get(/databases/$(database)/documents/units/$(unitId)/invites/$(request.auth.token.email.lower())).data;
     }
 
     // ----- profiles --------------------------------------------------------
@@ -55,36 +61,64 @@ service cloud.firestore {
     match /units/{unitId} {
       // Criar unidade: usuário autenticado vira dono.
       allow create: if signedIn() && request.resource.data.owner_id == request.auth.uid;
-      allow read: if signedIn() && isMember(unitId);
-      allow update, delete: if signedIn() && resource.data.owner_id == request.auth.uid;
+      // Membro lê; um convidado com convite válido também (para aceitar o
+      // convite o fluxo precisa checar o dono da unidade antes de entrar).
+      allow read: if signedIn() && (isMember(unitId) || hasValidInvite(unitId));
+      // Atualização só pelo dono e NUNCA altera o owner_id (evita auto-lockout
+      // de privilégios administrativos). Exclusão só pelo dono.
+      allow update: if signedIn() && resource.data.owner_id == request.auth.uid
+        && request.resource.data.owner_id == resource.data.owner_id;
+      allow delete: if signedIn() && resource.data.owner_id == request.auth.uid;
 
       match /permissions/{permId} {
         // Dono cria/edita permissões; um convidado pode se auto-cadastrar a
-        // partir de um convite válido (exige e-mail verificado).
+        // partir de um convite válido (exige e-mail verificado). O convidado só
+        // cria o PRÓPRIO documento (permId == uid), gravando owner_id exatamente
+        // igual ao da unidade (impede "membros fantasmas" invisíveis ao dono).
         allow create: if signedIn() &&
           (isOwner(unitId) ||
            (hasValidInvite(unitId)
+             && permId == request.auth.uid
              && request.resource.data.user_id == request.auth.uid
-             && request.resource.data.role == 'guest'));
+             && request.resource.data.role == 'guest'
+             // Vincula a permissão ao dono real da unidade e espelha o prazo
+             // definido pelo dono no convite — o convidado NÃO pode gravar
+             // expires_at próprio (impede acesso vitalício/futuro distante).
+             && request.resource.data.owner_id ==
+                get(/databases/$(database)/documents/units/$(unitId)).data.owner_id
+             && (('expires_at' in inviteData(unitId))
+                  ? request.resource.data.expires_at == inviteData(unitId).expires_at
+                  : !('expires_at' in request.resource.data))));
         allow update: if signedIn() && isOwner(unitId);
         allow delete: if signedIn() && (isOwner(unitId) || request.auth.uid == resource.data.user_id);
       }
 
       match /registries/{regId} {
-        // Criação por membro validando autor e unidade; alteração/exclusão só
-        // do dono, preservando a integridade do log de segurança.
+        // Criação por membro validando autor, unidade e o timestamp do registro
+        // (exatamente o request.time, impedindo adulteração da linha do tempo);
+        // alteração/exclusão só do dono, preservando a integridade do log.
         allow create: if signedIn() && isMember(unitId)
           && request.resource.data.author_id == request.auth.uid
-          && request.resource.data.unit_id == unitId;
+          && request.resource.data.unit_id == unitId
+          && request.resource.data.created_at == request.time;
         allow read: if signedIn() && isMember(unitId);
         allow update, delete: if signedIn() && isOwner(unitId);
       }
 
       // ----- invites (convite por e-mail) ---------------------------------
       match /invites/{email} {
-        allow create: if signedIn() && isOwner(unitId);
-        allow read: if signedIn() && (isOwner(unitId) || request.auth.token.email == email);
-        allow update, delete: if signedIn() && isOwner(unitId);
+        // O campo email deve espelhar o id do documento (o client grava em caixa
+        // baixa) — garante consistência e evita falhas silenciosas de leitura
+        // por diferença de caixa no collection group.
+        allow create: if signedIn() && isOwner(unitId)
+          && request.resource.data.email == email;
+        allow read: if signedIn() && (isOwner(unitId) || request.auth.token.email.lower() == email);
+        // Só o dono edita o convite. O convidado pode apagar o próprio convite
+        // ao aceitá-lo (o fluxo remove o convite depois de criar a permissão);
+        // sem update, ele não consegue adulterar os metadados do convite.
+        allow update: if signedIn() && isOwner(unitId);
+        allow delete: if signedIn() &&
+          (isOwner(unitId) || request.auth.token.email.lower() == email);
       }
     }
 
@@ -98,8 +132,12 @@ service cloud.firestore {
     }
 
     // Collection group de invites: o convidado enxerga só os próprios convites.
-    match /{path=**}/invites/{email} {
-      allow read: if signedIn() && request.auth.token.email == email;
+    // A condição usa resource.data.email (o campo filtrado na query), pois
+    // comparar o wildcard do id do documento torna a query não-satisfazível.
+    // O e-mail do token é normalizado para minúsculas para casar com o campo
+    // (gravado em caixa baixa pelo client) independente da caixa do token.
+    match /{path=**}/invites/{inviteId} {
+      allow read: if signedIn() && resource.data.email == request.auth.token.email.lower();
     }
   }
 }

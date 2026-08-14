@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:sentinela/core/app_routes.dart';
-import 'package:sentinela/core/service_locator.dart';
 import 'package:sentinela/pages/create_sentinel_registry_page.dart';
 import 'package:sentinela/pages/create_units_page.dart';
 import 'package:sentinela/pages/nav_page.dart';
@@ -11,15 +9,10 @@ import 'package:sentinela/pages/report_page.dart';
 import 'package:sentinela/pages/signin_page.dart';
 import 'package:sentinela/pages/units_page.dart';
 import 'package:sentinela/widgets/login/login.dart';
-import 'firebase_options.dart';
+import 'package:sentinela/widgets/splash_screen.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  ServiceLocator.instance.init();
-
   runApp(const MyApp());
 }
 
@@ -30,6 +23,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Sentinela',
+      initialRoute: AppRoutes.splash,
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
@@ -70,6 +64,7 @@ class MyApp extends StatelessWidget {
         ),
       ),
       routes: {
+        AppRoutes.splash: (context) => const SplashScreen(),
         AppRoutes.login: (context) => const Login(),
         AppRoutes.units: (context) => const UnitsPage(),
         AppRoutes.signin: (context) => const SignInPage(),

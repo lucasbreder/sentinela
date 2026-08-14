@@ -123,7 +123,7 @@ class FirebaseUnitRepository implements UnitRepository {
           AppFields.unitName: unit.name,
           AppFields.role: UserRole.guest,
           AppFields.ownerId: unit.ownerId,
-          if (expiresAt != null) AppFields.expiresAt: expiresAt,
+          AppFields.expiresAt: expiresAt,
         });
   }
 
@@ -284,22 +284,40 @@ class FirebaseUnitRepository implements UnitRepository {
       throw const NotFoundError('Convite não encontrado');
     }
     final data = inviteSnap.data() ?? const {};
-    if (!await isMember(uid, unitId)) {
-      await _db
-          .collection(AppCollections.units)
-          .doc(unitId)
-          .collection(AppCollections.permissions)
-          .doc(uid)
-          .set({
-            AppFields.userId: uid,
-            AppFields.unitId: unitId,
-            AppFields.unitName: data[AppFields.unitName] ?? '',
-            AppFields.role: UserRole.guest,
-            AppFields.ownerId: data[AppFields.ownerId],
-            AppFields.email: email,
-          });
+    try {
+      if (!await isMember(uid, unitId)) {
+        await _db
+            .collection(AppCollections.units)
+            .doc(unitId)
+            .collection(AppCollections.permissions)
+            .doc(uid)
+            .set({
+              AppFields.userId: uid,
+              AppFields.unitId: unitId,
+              AppFields.unitName: data[AppFields.unitName] ?? '',
+              AppFields.role: UserRole.guest,
+              AppFields.ownerId: data[AppFields.ownerId],
+              AppFields.email: email,
+              if (data.containsKey(AppFields.expiresAt))
+                AppFields.expiresAt: data[AppFields.expiresAt],
+            });
+      }
+      await inviteRef.delete();
+    } on FirebaseException catch (e) {
+      throw OperationError('Não foi possível aceitar o convite (${e.code})');
     }
-    await inviteRef.delete();
+  }
+
+  @override
+  Future<void> declineInvite(String unitId) async {
+    final me = FirebaseAuth.instance.currentUser;
+    final email = me?.email?.trim().toLowerCase() ?? '';
+    await _db
+        .collection(AppCollections.units)
+        .doc(unitId)
+        .collection(AppCollections.invites)
+        .doc(email)
+        .delete();
   }
 
   Future<List<Permission>> _queryPermissions({

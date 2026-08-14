@@ -96,4 +96,13 @@ void main() {
     expect(units.invites, isEmpty);
     expect(units.permissions.any((p) => p.isGuest && p.unitId == 'u-1'), isTrue);
   });
+
+  test('declineInvite remove o convite sem criar permissão', () async {
+    await controller.createUnit('Condomínio A');
+    await controller.createInvite('u-1', 'convidado@x.com', null);
+    final result = await controller.declineInvite('u-1');
+    expect(result, isA<Success<void>>());
+    expect(units.invites, isEmpty);
+    expect(units.permissions.any((p) => p.isGuest && p.unitId == 'u-1'), isFalse);
+  });
 }

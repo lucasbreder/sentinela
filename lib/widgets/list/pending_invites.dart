@@ -36,6 +36,23 @@ class _PendingInvitesState extends State<PendingInvites> {
     });
   }
 
+  Future<void> _decline(Invite invite) async {
+    final result =
+        await ServiceLocator.instance.units.declineInvite(invite.unitId);
+    if (!mounted) return;
+    result.when(
+      success: (_) => ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Convite recusado')),
+      ),
+      failure: (error) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      ),
+    );
+    setState(() {
+      _future = ServiceLocator.instance.units.getPendingInvites();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<Invite>>(
@@ -71,9 +88,18 @@ class _PendingInvitesState extends State<PendingInvites> {
             for (final invite in invites)
               ListTile(
                 title: Text(invite.unitName),
-                trailing: ElevatedButton(
-                  onPressed: () => _accept(invite),
-                  child: const Text('Aceitar'),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextButton(
+                      onPressed: () => _decline(invite),
+                      child: const Text('Recusar'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => _accept(invite),
+                      child: const Text('Aceitar'),
+                    ),
+                  ],
                 ),
               ),
           ],

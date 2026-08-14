@@ -103,4 +103,15 @@ class UnitController {
       return Failure(OperationError('Não foi possível remover o convite'));
     }
   }
+
+  Future<Result<void>> declineInvite(String unitId) async {
+    try {
+      await _units.declineInvite(unitId);
+      return const Success(null);
+    } on AppError catch (e) {
+      return Failure(e);
+    } catch (e) {
+      return Failure(OperationError('Não foi possível recusar o convite'));
+    }
+  }
 }

@@ -52,49 +52,68 @@ class _MyUnitsListState extends State<MyUnitsList> {
 
   Widget _buildUnitTile(Permission permission, Unit unit) {
     final isOwner = permission.isOwner;
-    final borderColor = isOwner
-        ? Theme.of(context).colorScheme.primary
-        : Theme.of(context).colorScheme.surface;
+    final color = Theme.of(context).colorScheme.primary;
     final borderWidth = isOwner ? 3.0 : 2.0;
-    final textColor =
-        isOwner ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.surface;
+    final textColor = color;
+
+    final content = Text(
+      unit.name,
+      style: TextStyle(
+        color: textColor,
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+
+    final tile = Container(
+      margin: const EdgeInsets.all(5),
+      padding: const EdgeInsets.fromLTRB(18, 10, 18, 10),
+      decoration: BoxDecoration(
+        borderRadius: const BorderRadius.all(Radius.circular(6)),
+        border: Border.all(color: color, width: borderWidth),
+      ),
+      child: isOwner
+          ? GestureDetector(
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        AccessUnitPage(unitId: unit.id, unitName: unit.name),
+                  ),
+                );
+              },
+              child: content,
+            )
+          : content,
+    );
 
     return Column(
       children: [
-        Container(
-          margin: const EdgeInsets.all(5),
-          padding: const EdgeInsets.fromLTRB(18, 10, 18, 10),
-          decoration: BoxDecoration(
-            borderRadius: const BorderRadius.all(Radius.circular(6)),
-            border: Border.all(color: borderColor, width: borderWidth),
-          ),
-          child: isOwner
-              ? GestureDetector(
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            AccessUnitPage(unitId: unit.id, unitName: unit.name),
-                      ),
-                    );
-                  },
-                  child: Text(
-                    unit.name,
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            tile,
+            if (!isOwner)
+              Positioned(
+                top: -4,
+                right: 2,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.secondary,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text(
+                    'Externa',
                     style: TextStyle(
-                      color: textColor,
-                      fontSize: 16,
+                      color: Colors.white,
+                      fontSize: 10,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                )
-              : Text(
-                  unit.name,
-                  style: TextStyle(
-                    color: textColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
                 ),
+              ),
+          ],
         ),
         if (permission.isGuest && permission.expiresAt != null)
           Column(

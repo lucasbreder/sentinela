@@ -19,5 +19,6 @@ abstract class UnitRepository {
   Future<List<Invite>> getPendingInvites();
   Future<List<Invite>> getUnitInvites(String unitId);
   Future<void> acceptInvite(String unitId);
+  Future<void> declineInvite(String unitId);
   Future<void> deleteInvite(String unitId, String email);
 }

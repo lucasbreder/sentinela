@@ -4,6 +4,7 @@ import 'package:sentinela/core/app_constants.dart';
 import 'package:sentinela/core/app_errors.dart';
 import 'package:sentinela/data/datasources/auth_datasource.dart';
 import 'package:sentinela/data/datasources/unit_datasource.dart';
+import 'package:sentinela/data/models/profile.dart';
 import 'package:sentinela/data/models/registry.dart';
 import 'package:sentinela/data/repositories/auth_profile_repository.dart';
 import 'package:sentinela/data/datasources/timestamp_util.dart';
@@ -34,6 +35,9 @@ class FirebaseRegistryRepository implements RegistryRepository {
     final data = registry
         .copyWith(authorName: author?.name, authorRegistry: author?.registry)
         .toMap();
+    // created_at é definido pelo servidor para casar com request.time nas
+    // Security Rules (impede adulteração da linha do tempo de acessos).
+    data[AppFields.createdAt] = FieldValue.serverTimestamp();
     await _db
         .collection(AppCollections.units)
         .doc(registry.unitId)
@@ -68,11 +72,34 @@ class FirebaseRegistryRepository implements RegistryRepository {
         .orderBy(AppFields.createdAt, descending: true)
         .get();
 
-    return q.docs
+    final registries = q.docs
         .map((doc) => Registry.fromMap(
               doc.id,
               normalizeTimestamps(doc.data(), [AppFields.createdAt]),
             ))
         .toList();
+
+    return _enrichAuthors(registries);
+  }
+
+  Future<List<Registry>> _enrichAuthors(List<Registry> registries) async {
+    final profiles = <String, Profile?>{};
+    final result = <Registry>[];
+    for (final registry in registries) {
+      if (registry.authorName != null && registry.authorRegistry != null) {
+        result.add(registry);
+        continue;
+      }
+      if (!profiles.containsKey(registry.authorId)) {
+        profiles[registry.authorId] =
+            await _profileRepository.getById(registry.authorId);
+      }
+      final profile = profiles[registry.authorId];
+      result.add(profile != null
+          ? registry.copyWith(
+              authorName: profile.name, authorRegistry: profile.registry)
+          : registry);
+    }
+    return result;
   }
 }

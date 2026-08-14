@@ -218,6 +218,12 @@ class FakeUnitRepository implements UnitRepository {
       role: UserRole.guest,
     ));
   }
+
+  @override
+  Future<void> declineInvite(String unitId) async {
+    calls.add('declineInvite');
+    invites.removeWhere((i) => i.unitId == unitId);
+  }
 }
 
 class FakeRegistryRepository implements RegistryRepository {
