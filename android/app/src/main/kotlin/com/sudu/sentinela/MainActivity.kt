@@ -1,4 +1,4 @@
-package com.mac.sentinela
+package com.sudu.sentinela
 
 import io.flutter.embedding.android.FlutterActivity
 

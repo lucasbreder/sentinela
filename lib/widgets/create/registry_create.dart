@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:sentinela/core/app_constants.dart';
 import 'package:sentinela/core/service_locator.dart';
 import 'package:sentinela/data/models/permission.dart';
 import 'package:sentinela/data/models/registry.dart';
 import 'package:sentinela/helpers/text_uppercase_formater.dart';
+import 'package:sentinela/pages/plate_scanner_page.dart';
 import 'package:sentinela/widgets/title/page_title.dart';
 import 'package:sentinela/widgets/title/secondary_title.dart';
 
@@ -38,24 +38,19 @@ class _RegistryCreateState extends State<RegistryCreate> {
   }
 
   Future<void> _pickPlateByCamera() async {
-    final picker = ImagePicker();
-    final pickedImage = await picker.pickImage(
-      source: ImageSource.camera,
-      preferredCameraDevice: CameraDevice.rear,
-      imageQuality: 100,
+    final plate = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const PlateScannerPage()),
     );
-    if (pickedImage == null) return;
-
-    final plate = await ServiceLocator.instance.plateRecognition.recognize(pickedImage.path);
     if (plate == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Nenhum texto encontrado')),
+          const SnackBar(content: Text('Nenhuma placa reconhecida')),
         );
       }
       return;
     }
 
+    if (!mounted) return;
     setState(() {
       licensePlate = plate;
       licensePlateController.text = plate;

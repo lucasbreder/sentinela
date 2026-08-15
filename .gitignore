@@ -8,6 +8,11 @@
 # Firebase service account (nunca versionar)
 *firebase-adminsdk*.json
 
+# Chave de assinatura (nunca versionar)
+android/key.properties
+*.jks
+*.keystore
+
 # gcloud SDK instalado acidentalmente dentro do repo
 google-cloud-sdk/
 google-cloud-cli-*.tar.gz

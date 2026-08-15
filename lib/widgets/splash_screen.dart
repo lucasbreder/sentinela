@@ -1,28 +1,11 @@
 import 'dart:async';
-import 'dart:js_interop';
-import 'dart:js_interop_unsafe';
 
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:sentinela/core/app_routes.dart';
 import 'package:sentinela/core/service_locator.dart';
+import 'package:sentinela/widgets/splash_overlay.dart' as splash_overlay;
 import '../../firebase_options.dart';
-
-void removeSplashOverlay() {
-  if (!kIsWeb) return;
-  try {
-    final document = globalContext['document'] as JSObject;
-    final splash = document.callMethodVarArgs<JSAny?>(
-      'querySelector'.toJS,
-      <JSAny?>['#splash'.toJS],
-    );
-    (splash as JSObject)
-        .callMethodVarArgs<JSAny?>('remove'.toJS, const <JSAny?>[]);
-  } catch (_) {
-    // falha silenciosa: splash já removido ou ausente no host
-  }
-}
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -35,7 +18,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => removeSplashOverlay());
+    WidgetsBinding.instance.addPostFrameCallback((_) => splash_overlay.removeSplashOverlay());
     unawaited(_initialize());
   }
 
