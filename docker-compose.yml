@@ -6,5 +6,5 @@ services:
     image: sentinela:latest
     container_name: sentinela
     ports:
-      - "8080:80"
+      - "8001:80"
     restart: unless-stopped
