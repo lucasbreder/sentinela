@@ -1,0 +1,10 @@
+services:
+  sentinela:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: sentinela:latest
+    container_name: sentinela
+    ports:
+      - "8080:80"
+    restart: unless-stopped

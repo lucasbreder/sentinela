@@ -1,0 +1,23 @@
+# Build e artefatos
+build/
+.dart_tool/
+.pub-cache/
+
+# Git e IDE
+.git/
+.gitignore
+.idea/
+.vscode/
+
+# Firebase (nunca vazar credenciais no contexto da imagem)
+*firebase-adminsdk*.json
+google-cloud-sdk/
+google-cloud-cli-*.tar.gz
+.firebaserc
+
+# Testes / análise
+test/
+analysis_options.yaml
+
+# Utilidades
+*.log
