@@ -298,8 +298,7 @@ class FirebaseUnitRepository implements UnitRepository {
               AppFields.role: UserRole.guest,
               AppFields.ownerId: data[AppFields.ownerId],
               AppFields.email: email,
-              if (data.containsKey(AppFields.expiresAt))
-                AppFields.expiresAt: data[AppFields.expiresAt],
+              AppFields.expiresAt: data[AppFields.expiresAt],
             });
       }
       await inviteRef.delete();

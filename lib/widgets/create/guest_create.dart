@@ -35,7 +35,13 @@ class _UnitGuestCreateState extends State<UnitGuestCreate> {
     if (pickedTime == null) return;
     final date = pickedDate.toLocal();
     setState(() {
-      _expiresAt = DateTime(date.year, date.month, date.day, pickedTime.hour, pickedTime.minute);
+      _expiresAt = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        pickedTime.hour,
+        pickedTime.minute,
+      );
     });
     final formatted = DateFormat("dd/MM/yyyy 'às' HH:mm");
     dateController.text = formatted.format(_expiresAt!);
@@ -45,13 +51,20 @@ class _UnitGuestCreateState extends State<UnitGuestCreate> {
   Future<void> _grantAccess() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final result = await ServiceLocator.instance.units
-        .createInvite(widget.unitId, _email, _expiresAt);
+    final result = await ServiceLocator.instance.units.createInvite(
+      widget.unitId,
+      _email,
+      _expiresAt,
+    );
     if (!mounted) return;
     result.when(
       success: (_) {
-        _showSnack('Convite enviado ao e-mail');
-        Navigator.pushNamedAndRemoveUntil(context, AppRoutes.units, (route) => false);
+        _showSnack('Convite enviado para o app do convidado');
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRoutes.units,
+          (route) => false,
+        );
       },
       failure: (error) => _showSnack(error.message),
     );
@@ -59,7 +72,9 @@ class _UnitGuestCreateState extends State<UnitGuestCreate> {
 
   void _showSnack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -90,7 +105,7 @@ class _UnitGuestCreateState extends State<UnitGuestCreate> {
               onPressed: _grantAccess,
               child: const Text('Enviar'),
             ),
-          )
+          ),
         ],
       ),
     );

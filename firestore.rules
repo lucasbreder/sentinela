@@ -86,9 +86,18 @@ service cloud.firestore {
              // expires_at próprio (impede acesso vitalício/futuro distante).
              && request.resource.data.owner_id ==
                 get(/databases/$(database)/documents/units/$(unitId)).data.owner_id
+             // Expiração: espelha o prazo do convite usando comparação de
+             // intervalo (== de timestamp entre request.resource e get() é
+             // frágil — pode dar evaluation error em Firestore real por
+             // diferença de precisão). `<=` impede o convidado de estender o
+             // acesso além do prazo definido pelo dono e tolera o espelho
+             // exato; exige que o acesso ainda esteja ativo (>= request.time).
              && (('expires_at' in inviteData(unitId))
-                  ? request.resource.data.expires_at == inviteData(unitId).expires_at
-                  : !('expires_at' in request.resource.data))));
+                  ? ('expires_at' in request.resource.data
+                      && request.resource.data.expires_at >= request.time
+                      && request.resource.data.expires_at <= inviteData(unitId).expires_at)
+                  : (!('expires_at' in request.resource.data) ||
+                     request.resource.data.expires_at == null))));
         allow update: if signedIn() && isOwner(unitId);
         allow delete: if signedIn() && (isOwner(unitId) || request.auth.uid == resource.data.user_id);
       }
