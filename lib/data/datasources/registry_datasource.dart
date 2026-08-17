@@ -3,11 +3,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:sentinela/core/app_constants.dart';
 import 'package:sentinela/core/app_errors.dart';
 import 'package:sentinela/data/datasources/auth_datasource.dart';
+import 'package:sentinela/data/datasources/timestamp_util.dart';
 import 'package:sentinela/data/datasources/unit_datasource.dart';
 import 'package:sentinela/data/models/profile.dart';
 import 'package:sentinela/data/models/registry.dart';
 import 'package:sentinela/data/repositories/auth_profile_repository.dart';
-import 'package:sentinela/data/datasources/timestamp_util.dart';
 import 'package:sentinela/data/repositories/registry_repository.dart';
 import 'package:sentinela/data/repositories/unit_repository.dart';
 
@@ -83,22 +83,28 @@ class FirebaseRegistryRepository implements RegistryRepository {
   }
 
   Future<List<Registry>> _enrichAuthors(List<Registry> registries) async {
-    final profiles = <String, Profile?>{};
+    // Só o próprio usuário pode ler o próprio perfil (regra de profiles).
+    // Nunca lemos o perfil de outro autor — isso seria permission-denied e
+    // vazaria PII. Autores de registros sem name/registry desnormalizados são
+    // preenchidos na criação (add) ou por backfill de dados.
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    Profile? ownProfile;
     final result = <Registry>[];
     for (final registry in registries) {
       if (registry.authorName != null && registry.authorRegistry != null) {
         result.add(registry);
         continue;
       }
-      if (!profiles.containsKey(registry.authorId)) {
-        profiles[registry.authorId] =
-            await _profileRepository.getById(registry.authorId);
+      if (uid != null && registry.authorId == uid) {
+        ownProfile ??= await _profileRepository.getById(uid);
+        final profile = ownProfile;
+        result.add(profile != null
+            ? registry.copyWith(
+                authorName: profile.name, authorRegistry: profile.registry)
+            : registry);
+      } else {
+        result.add(registry);
       }
-      final profile = profiles[registry.authorId];
-      result.add(profile != null
-          ? registry.copyWith(
-              authorName: profile.name, authorRegistry: profile.registry)
-          : registry);
     }
     return result;
   }
