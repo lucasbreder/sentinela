@@ -60,6 +60,32 @@
     // The value below is injected by flutter build, do not touch.
     var serviceWorkerVersion = null;
   </script>
+  <script>
+    // Limpa service workers/caches antigos (herdados de deploys offline-first).
+    (function cleanupLegacyServiceWorker() {
+      if (sessionStorage.getItem('sent-cleanup-done')) return;
+      var needsReload = false;
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(regs) {
+          regs.forEach(function(reg) {
+            needsReload = true;
+            reg.unregister();
+          });
+        });
+      }
+      if ('caches' in window) {
+        caches.keys().then(function(keys) {
+          if (keys.length) {
+            needsReload = true;
+            keys.forEach(function(k) { caches.delete(k); });
+          }
+        }).then(function() {
+          sessionStorage.setItem('sent-cleanup-done', '1');
+          if (needsReload) location.reload();
+        });
+      }
+    })();
+  </script>
   <!-- OCR de placas no navegador (Tesseract.js) -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" defer></script>
   <!-- This script adds the flutter initialization JS code -->
