@@ -5,6 +5,16 @@ import 'dart:ui';
 import 'package:camera/camera.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
+/// Buffer RGB(RGBA) extraído de um quadro da câmera, para processamento em
+/// Dart (ex.: recorte da placa).
+class RgbaFrame {
+  const RgbaFrame({required this.bytes, required this.width, required this.height});
+
+  final Uint8List bytes;
+  final int width;
+  final int height;
+}
+
 /// Converte um quadro da câmera ([CameraImage]) em um [InputImage] aceito pelo
 /// ML Kit. A conversão depende da plataforma e do formato do plano.
 abstract final class CameraImageConverter {
@@ -40,18 +50,34 @@ abstract final class CameraImageConverter {
     );
   }
 
-  /// Monta o buffer NV21 (Android): plano Y inteiro + planos de crominância
-  /// intercalados (VU). Se o feed já for NV21 (2 planos), concatena direto.
+  /// Monta o buffer NV21 (Android): plano Y inteiro seguido da crominância
+  /// intercalada **VU** (V depois U alternando).
+  ///
+  /// No formato `yuv_420_888` do Android os planos costumam ser
+  /// `planes[0] = Y`, `planes[1] = U`, `planes[2] = V`. O NV21 exige que U e V
+  /// sejam intercalados como VU — apenas concatenar o plano U (como era feito
+  /// antes) gerava um buffer malformado que o ML Kit rejeitava, silenciando o
+  /// streaming.
   static Uint8List _toNv21(CameraImage image) {
     if (image.planes.length == 1) {
       return image.planes.single.bytes;
     }
 
     final y = image.planes[0];
-    final uv = image.planes[1];
-    final buffer = Uint8List(y.bytes.length + uv.bytes.length);
+    final u = image.planes[1];
+    final v = image.planes[2];
+
+    final buffer = Uint8List(y.bytes.length + u.bytes.length + v.bytes.length);
     buffer.setRange(0, y.bytes.length, y.bytes);
-    buffer.setRange(y.bytes.length, buffer.length, uv.bytes);
+
+    final chromaCount = u.bytes.length < v.bytes.length
+        ? u.bytes.length
+        : v.bytes.length;
+    var offset = y.bytes.length;
+    for (var i = 0; i < chromaCount; i++) {
+      buffer[offset++] = v.bytes[i];
+      buffer[offset++] = u.bytes[i];
+    }
     return buffer;
   }
 
@@ -68,5 +94,68 @@ abstract final class CameraImageConverter {
       offset += plane.bytes.length;
     }
     return buffer;
+  }
+
+  /// Converte um quadro NV21/YUV420 para RGBA, permitindo recortar a região da
+  /// placa em Dart e re-OCR em alta qualidade.
+  static RgbaFrame toRgba(CameraImage image) {
+    final width = image.width;
+    final height = image.height;
+    final yPlane = image.planes[0];
+
+    Uint8List? uv;
+    if (image.planes.length == 3) {
+      uv = _interleaveVu(image.planes[1].bytes, image.planes[2].bytes);
+    } else if (image.planes.length == 2) {
+      uv = image.planes[1].bytes;
+    }
+
+    final out = Uint8List(width * height * 4);
+    if (uv != null) {
+      final uvWidth = width >> 1;
+      for (var y = 0; y < height; y++) {
+        final yRow = y * yPlane.bytesPerRow;
+        for (var x = 0; x < width; x++) {
+          final yIdx = yRow + x;
+          if (yIdx >= yPlane.bytes.length) continue;
+          final Y = (yPlane.bytes[yIdx] - 16) * 298;
+          final uvIndex = (y >> 1) * uvWidth + (x >> 1);
+          final V = uv[uvIndex * 2] - 128;
+          final U = uv[uvIndex * 2 + 1] - 128;
+          final r = (Y + 409 * V + 128) >> 8;
+          final g = (Y - 100 * U - 208 * V + 128) >> 8;
+          final b = (Y + 516 * U + 128) >> 8;
+          final o = (y * width + x) * 4;
+          out[o] = r.clamp(0, 255).toInt();
+          out[o + 1] = g.clamp(0, 255).toInt();
+          out[o + 2] = b.clamp(0, 255).toInt();
+          out[o + 3] = 255;
+        }
+      }
+    } else {
+      // Sem crominância disponível: usa a luminância como tons de cinza.
+      for (var i = 0; i < width * height; i++) {
+        final yIdx = (i ~/ width) * yPlane.bytesPerRow + (i % width);
+        if (yIdx >= yPlane.bytes.length) continue;
+        final gray = yPlane.bytes[yIdx];
+        final o = i * 4;
+        out[o] = gray;
+        out[o + 1] = gray;
+        out[o + 2] = gray;
+        out[o + 3] = 255;
+      }
+    }
+    return RgbaFrame(bytes: out, width: width, height: height);
+  }
+
+  /// Intercala U e V no padrão NV21 (V depois U), para conversão direta.
+  static Uint8List _interleaveVu(Uint8List u, Uint8List v) {
+    final count = u.length < v.length ? u.length : v.length;
+    final out = Uint8List(count * 2);
+    for (var i = 0; i < count; i++) {
+      out[i * 2] = v[i];
+      out[i * 2 + 1] = u[i];
+    }
+    return out;
   }
 }

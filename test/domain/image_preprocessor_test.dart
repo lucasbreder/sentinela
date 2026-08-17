@@ -35,4 +35,21 @@ void main() {
       expect(result, isA<img.Image>());
     });
   });
+
+  group('ImagePreprocessor.upscale', () {
+    test('amplia imagens menores que o alvo', () {
+      final small = img.Image(width: 100, height: 50);
+      final result = ImagePreprocessor.upscale(small);
+      expect(result.width, greaterThan(small.width));
+      expect(result.height, greaterThan(small.height));
+      expect(result.width > result.height, true);
+    });
+
+    test('não amplia imagens já grandes o suficiente', () {
+      final large = img.Image(width: 2000, height: 1000);
+      final result = ImagePreprocessor.upscale(large);
+      expect(result.width, large.width);
+      expect(result.height, large.height);
+    });
+  });
 }
