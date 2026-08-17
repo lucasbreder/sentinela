@@ -107,6 +107,24 @@ void main() {
     expect(guests.single.isGuest, isTrue);
   });
 
+  test('getActiveUnits exclui unidades arquivadas', () async {
+    await controller.createUnit('Condomínio A');
+    units.units['u-2'] = const Unit(id: 'u-2', name: 'Unidade Externa', ownerId: 'user-2');
+    units.permissions.add(const Permission(
+      id: 'p-guest',
+      userId: 'user-1',
+      unitId: 'u-2',
+      unitName: 'Unidade Externa',
+      role: UserRole.guest,
+      ownerId: 'user-2',
+    ));
+    await controller.archiveUnit('u-1');
+
+    final active = await controller.getActiveUnits();
+    expect(active.length, 1);
+    expect(active.single.id, 'u-2');
+  });
+
   test('createInvite registra convite sem expor perfil', () async {
     await controller.createUnit('Condomínio A');
     final result = await controller.createInvite('u-1', 'convidado@x.com', null);

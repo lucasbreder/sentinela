@@ -4,8 +4,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:file_saver/file_saver.dart';
 import 'package:sentinela/core/service_locator.dart';
-import 'package:sentinela/data/models/permission.dart';
 import 'package:sentinela/data/models/registry.dart';
+import 'package:sentinela/data/models/unit.dart';
 import 'package:sentinela/helpers/format_date.dart';
 import 'package:sentinela/widgets/list/report_pdf_item.dart';
 import 'package:sentinela/widgets/title/secondary_title.dart';
@@ -101,13 +101,13 @@ class _ReportListState extends State<ReportList> {
       children: [
         const SecondaryTitle(title: 'Selecione uma unidade'),
         Flexible(
-          child: FutureBuilder<List<Permission>>(
-            future: ServiceLocator.instance.units.getMyPermissions(),
+          child: FutureBuilder<List<Unit>>(
+            future: ServiceLocator.instance.units.getActiveUnits(),
             builder: (context, snapshot) {
-              final permissions = snapshot.data ?? [];
-              if (permissions.isEmpty) return const SizedBox();
+              final units = snapshot.data ?? [];
+              if (units.isEmpty) return const SizedBox();
               return SizedBox(
-                height: 70.0 * (permissions.length / 3).ceilToDouble(),
+                height: 70.0 * (units.length / 3).ceilToDouble(),
                 child: GridView.builder(
                   clipBehavior: Clip.none,
                   physics: const NeverScrollableScrollPhysics(),
@@ -118,14 +118,14 @@ class _ReportListState extends State<ReportList> {
                     crossAxisSpacing: 10,
                     mainAxisSpacing: 20,
                   ),
-                  itemCount: permissions.length,
+                  itemCount: units.length,
                   itemBuilder: (context, index) {
-                    final data = permissions[index];
-                    final selected = unitId == data.unitId;
+                    final data = units[index];
+                    final selected = unitId == data.id;
                     return GestureDetector(
                       onTap: () => setState(() {
-                        unitId = data.unitId;
-                        unitName = data.unitName;
+                        unitId = data.id;
+                        unitName = data.name;
                       }),
                       child: Container(
                         decoration: BoxDecoration(
@@ -142,7 +142,7 @@ class _ReportListState extends State<ReportList> {
                         ),
                         padding: const EdgeInsets.all(10),
                         child: Text(
-                          data.unitName,
+                          data.name,
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: selected

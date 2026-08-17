@@ -11,6 +11,7 @@ class UnitController {
   UnitController({required UnitRepository units}) : _units = units;
 
   Future<List<Permission>> getMyPermissions() => _units.getMyPermissions();
+  Future<List<Unit>> getActiveUnits() => _units.getActiveUnits();
   Future<List<Permission>> getGuestPermissions() => _units.getGuestPermissions();
   Future<Unit> getUnit(String unitId) => _units.getUnit(unitId);
   Future<bool> isOwner(String userId, String unitId) => _units.isOwner(userId, unitId);

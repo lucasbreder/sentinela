@@ -5,6 +5,7 @@ import 'package:sentinela/data/models/unit.dart';
 abstract class UnitRepository {
   Future<Unit> createUnit(String name);
   Future<Unit> getUnit(String unitId);
+  Future<List<Unit>> getActiveUnits();
   Future<List<Permission>> getMyPermissions();
   Future<List<Permission>> getGuestPermissions();
   Future<bool> isOwner(String userId, String unitId);

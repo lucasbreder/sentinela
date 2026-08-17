@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:sentinela/core/app_constants.dart';
 import 'package:sentinela/core/service_locator.dart';
-import 'package:sentinela/data/models/permission.dart';
 import 'package:sentinela/data/models/registry.dart';
+import 'package:sentinela/data/models/unit.dart';
 import 'package:sentinela/helpers/text_uppercase_formater.dart';
 import 'package:sentinela/pages/plate_scanner_page.dart';
 import 'package:sentinela/widgets/title/page_title.dart';
@@ -31,9 +31,9 @@ class _RegistryCreateState extends State<RegistryCreate> {
   final _formKey = GlobalKey<FormState>();
 
   Future<void> _selectFirstUnit() async {
-    final permissions = await ServiceLocator.instance.units.getMyPermissions();
-    if (permissions.isNotEmpty && mounted) {
-      setState(() => unitId = permissions.first.unitId);
+    final units = await ServiceLocator.instance.units.getActiveUnits();
+    if (units.isNotEmpty && mounted) {
+      setState(() => unitId = units.first.id);
     }
   }
 
@@ -145,13 +145,13 @@ class _RegistryCreateState extends State<RegistryCreate> {
             ],
           ),
           const SecondaryTitle(title: 'Unidades'),
-          FutureBuilder<List<Permission>>(
-            future: ServiceLocator.instance.units.getMyPermissions(),
+          FutureBuilder<List<Unit>>(
+            future: ServiceLocator.instance.units.getActiveUnits(),
             builder: (context, snapshot) {
-              final permissions = snapshot.data ?? [];
-              if (permissions.isEmpty) return const SizedBox();
+              final units = snapshot.data ?? [];
+              if (units.isEmpty) return const SizedBox();
               return SizedBox(
-                height: 70.0 * (permissions.length / 3).ceilToDouble(),
+                height: 70.0 * (units.length / 3).ceilToDouble(),
                 child: GridView.builder(
                   clipBehavior: Clip.none,
                   physics: const NeverScrollableScrollPhysics(),
@@ -162,12 +162,12 @@ class _RegistryCreateState extends State<RegistryCreate> {
                     crossAxisSpacing: 10,
                     mainAxisSpacing: 20,
                   ),
-                  itemCount: permissions.length,
+                  itemCount: units.length,
                   itemBuilder: (context, index) {
-                    final data = permissions[index];
-                    final selected = unitId == data.unitId;
+                    final data = units[index];
+                    final selected = unitId == data.id;
                     return GestureDetector(
-                      onTap: () => setState(() => unitId = data.unitId),
+                      onTap: () => setState(() => unitId = data.id),
                       child: Container(
                         decoration: BoxDecoration(
                           border: Border.all(
@@ -183,7 +183,7 @@ class _RegistryCreateState extends State<RegistryCreate> {
                         ),
                         padding: const EdgeInsets.all(10),
                         child: Text(
-                          data.unitName,
+                          data.name,
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: selected

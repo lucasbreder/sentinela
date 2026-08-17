@@ -36,6 +36,21 @@ class FirebaseUnitRepository implements UnitRepository {
   }
 
   @override
+  Future<List<Unit>> getActiveUnits() async {
+    final permissions = await getMyPermissions();
+    final units = <Unit>[];
+    for (final permission in permissions) {
+      try {
+        final unit = await getUnit(permission.unitId);
+        if (!unit.archived) units.add(unit);
+      } catch (_) {
+        continue;
+      }
+    }
+    return units;
+  }
+
+  @override
   Future<List<Permission>> getMyPermissions() async {
     final uid = _currentUserId();
     return [

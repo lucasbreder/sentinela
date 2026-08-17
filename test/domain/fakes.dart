@@ -111,6 +111,16 @@ class FakeUnitRepository implements UnitRepository {
   }
 
   @override
+  Future<List<Unit>> getActiveUnits() async {
+    final result = <Unit>[];
+    for (final permission in await getMyPermissions()) {
+      final unit = units[permission.unitId];
+      if (unit != null && !unit.archived) result.add(unit);
+    }
+    return result;
+  }
+
+  @override
   Future<List<Permission>> getMyPermissions() async => List.of(permissions);
 
   @override
