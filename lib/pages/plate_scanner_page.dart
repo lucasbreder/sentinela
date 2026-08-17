@@ -1,16 +1,18 @@
 import 'dart:async';
 
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:sentinela/core/service_locator.dart';
 import 'package:sentinela/domain/camera_image_converter.dart';
 
-/// Tela que escaneia placas em tempo real a partir do feed da câmera.
+/// Tela que escaneia placas.
 ///
-/// Abre a câmera, processa os quadros com debounce (para não sobrecarregar a
-/// CPU) e, ao reconhecer uma placa, fecha a tela devolvendo o valor via
-/// `Navigator.pop`.
+/// Em dispositivos móveis escaneia em tempo real a partir do feed da câmera,
+/// processando os quadros com debounce. No navegador (web) tira/abre uma foto
+/// e executa o OCR na imagem, devolvendo o valor via `Navigator.pop`.
 class PlateScannerPage extends StatefulWidget {
   const PlateScannerPage({super.key});
 
@@ -22,17 +24,57 @@ class PlateScannerPage extends StatefulWidget {
 }
 
 class _PlateScannerPageState extends State<PlateScannerPage> {
+  final ImagePicker _imagePicker = ImagePicker();
+
   CameraController? _controller;
   bool _processing = false;
   bool _cameraReady = false;
   String? _error;
   DateTime _lastProcessedAt = DateTime.fromMillisecondsSinceEpoch(0);
   bool _closed = false;
+  Uint8List? _photo;
 
   @override
   void initState() {
     super.initState();
-    _initCamera();
+    if (kIsWeb) {
+      unawaited(_pickPhoto());
+    } else {
+      _initCamera();
+    }
+  }
+
+  Future<void> _pickPhoto() async {
+    try {
+      final image = await _imagePicker.pickImage(source: ImageSource.camera);
+      if (image == null) {
+        if (mounted) Navigator.of(context).pop();
+        return;
+      }
+      final bytes = await image.readAsBytes();
+      if (!mounted) return;
+      setState(() {
+        _photo = bytes;
+        _processing = true;
+        _error = null;
+      });
+
+      final plate =
+          await ServiceLocator.instance.plateRecognition.recognizeBytes(bytes);
+      if (!mounted) return;
+      setState(() => _processing = false);
+      if (plate != null) {
+        Navigator.of(context).pop(plate);
+      } else {
+        setState(() => _error = 'Nenhuma placa reconhecida. Tente outra foto.');
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _processing = false;
+        _error = 'Não foi possível processar a foto.';
+      });
+    }
   }
 
   Future<void> _initCamera() async {
@@ -119,8 +161,8 @@ class _PlateScannerPageState extends State<PlateScannerPage> {
       body: SafeArea(
         child: Stack(
           children: [
-            Positioned.fill(child: _buildPreview()),
-            const Positioned.fill(child: _ScannerOverlay()),
+            Positioned.fill(child: _buildBody()),
+            if (!kIsWeb) const Positioned.fill(child: _ScannerOverlay()),
             Positioned(
               top: 12,
               left: 12,
@@ -129,26 +171,86 @@ class _PlateScannerPageState extends State<PlateScannerPage> {
                 onPressed: () => Navigator.of(context).pop(),
               ),
             ),
-            Positioned(
-              bottom: 40,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: _processing
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text(
-                        'Aponte a câmera para a placa',
-                        style: TextStyle(color: Colors.white, fontSize: 16),
-                      ),
+            if (kIsWeb)
+              Positioned(
+                bottom: 24,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: _processing
+                      ? const Column(
+                          children: [
+                            CircularProgressIndicator(color: Colors.white),
+                            SizedBox(height: 12),
+                            Text(
+                              'Processando imagem...',
+                              style: TextStyle(color: Colors.white, fontSize: 16),
+                            ),
+                          ],
+                        )
+                      : ElevatedButton.icon(
+                          onPressed: _pickPhoto,
+                          icon: const Icon(Icons.photo_camera),
+                          label: const Text('Tirar foto da placa'),
+                        ),
+                ),
+              )
+            else
+              Positioned(
+                bottom: 40,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: _processing
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text(
+                          'Aponte a câmera para a placa',
+                          style: TextStyle(color: Colors.white, fontSize: 16),
+                        ),
+                ),
               ),
-            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildPreview() {
+  Widget _buildBody() {
+    if (kIsWeb) return _buildWebBody();
+    return _buildMobilePreview();
+  }
+
+  Widget _buildWebBody() {
+    final photo = _photo;
+    if (photo != null) {
+      return Image.memory(photo, fit: BoxFit.contain);
+    }
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white, fontSize: 16),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _pickPhoto,
+              icon: const Icon(Icons.photo_camera),
+              label: const Text('Tentar novamente'),
+            ),
+          ],
+        ),
+      );
+    }
+    return const Center(
+      child: CircularProgressIndicator(color: Colors.white),
+    );
+  }
+
+  Widget _buildMobilePreview() {
     if (_error != null) {
       return Center(
         child: Text(_error!, style: const TextStyle(color: Colors.white)),

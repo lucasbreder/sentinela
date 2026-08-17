@@ -162,6 +162,23 @@ class FakeUnitRepository implements UnitRepository {
   }
 
   @override
+  Future<void> removeMyAccess(String unitId) async {
+    calls.add('removeMyAccess');
+    permissions.removeWhere(
+      (p) => p.unitId == unitId && p.userId == 'user-1' && p.isGuest,
+    );
+  }
+
+  @override
+  Future<void> setUnitArchived(String unitId, bool archived) async {
+    calls.add('setUnitArchived');
+    final unit = units[unitId];
+    if (unit != null) {
+      units[unitId] = unit.copyWith(archived: archived);
+    }
+  }
+
+  @override
   Future<void> deleteUnit(String unitId) async {
     calls.add('deleteUnit');
     units.remove(unitId);

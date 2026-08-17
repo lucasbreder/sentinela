@@ -53,6 +53,32 @@ class UnitController {
     }
   }
 
+  Future<Result<void>> removeMyAccess(String unitId) async {
+    try {
+      await _units.removeMyAccess(unitId);
+      return const Success(null);
+    } on AppError catch (e) {
+      return Failure(e);
+    } catch (e) {
+      return Failure(OperationError('Não foi possível remover seu acesso'));
+    }
+  }
+
+  Future<Result<void>> archiveUnit(String unitId) => _setArchived(unitId, true);
+  Future<Result<void>> unarchiveUnit(String unitId) => _setArchived(unitId, false);
+
+  Future<Result<void>> _setArchived(String unitId, bool archived) async {
+    try {
+      await _units.setUnitArchived(unitId, archived);
+      return const Success(null);
+    } on AppError catch (e) {
+      return Failure(e);
+    } catch (e) {
+      return Failure(OperationError(
+          archived ? 'Não foi possível arquivar a unidade' : 'Não foi possível desarquivar a unidade'));
+    }
+  }
+
   Future<Result<void>> deleteUnit(String unitId) async {
     try {
       await _units.deleteUnit(unitId);

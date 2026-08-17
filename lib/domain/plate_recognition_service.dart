@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image/image.dart' as img;
 import 'package:sentinela/domain/image_preprocessor.dart';
+import 'package:sentinela/domain/web_ocr.dart';
 
 /// Resultado do reconhecimento de uma placa.
 class PlateRecognition {
@@ -81,11 +84,61 @@ abstract final class PlateExtractor {
 }
 
 class PlateRecognitionService {
+  /// Dimensão máxima (lado maior) para reduzir fotos grandes antes do OCR.
+  /// Fotos de câmera chegam a 12+ MP; processar em tamanho cheio no navegador
+  /// estoura a memória da aba e deixa o OCR lento.
+  static const int _maxOcrDimension = 1280;
+
   /// Reconhece e devolve a primeira placa válida em uma imagem.
   Future<String?> recognize(String imagePath) async {
     final inputImage = _buildInputImage(imagePath);
     if (inputImage == null) return null;
     return processInputImage(inputImage);
+  }
+
+  /// Reconhece e devolve a primeira placa válida a partir dos bytes de uma
+  /// imagem. No navegador usa o Tesseract.js; em dispositivos móveis grava um
+  /// arquivo temporário e processa pelo ML Kit.
+  Future<String?> recognizeBytes(Uint8List imageBytes) async {
+    final decoded = _decodeForOcr(imageBytes);
+    if (decoded == null) return null;
+
+    if (kIsWeb) {
+      final processed = ImagePreprocessor.process(decoded);
+      final pngBytes = img.encodePng(processed);
+      final text = await webOcrText(pngBytes, 'image/png');
+      return PlateExtractor.extract(text);
+    }
+
+    final file = File(
+      '${Directory.systemTemp.path}/plate_${DateTime.now().microsecondsSinceEpoch}.png',
+    );
+    try {
+      await file.writeAsBytes(img.encodePng(decoded));
+      return await recognize(file.path);
+    } finally {
+      if (await file.exists()) {
+        try {
+          await file.delete();
+        } catch (_) {}
+      }
+    }
+  }
+
+  /// Decodifica a imagem e reduz fotos muito grandes, preservando a
+  /// proporção, para evitar uso excessivo de memória e OCR lento.
+  img.Image? _decodeForOcr(Uint8List imageBytes) {
+    final decoded = img.decodeImage(imageBytes);
+    if (decoded == null) return null;
+    final maxDim = decoded.width > decoded.height ? decoded.width : decoded.height;
+    if (maxDim <= _maxOcrDimension) return decoded;
+    final scale = _maxOcrDimension / maxDim;
+    return img.copyResize(
+      decoded,
+      width: (decoded.width * scale).round(),
+      height: (decoded.height * scale).round(),
+      interpolation: img.Interpolation.linear,
+    );
   }
 
   /// Processa um [InputImage] (de foto ou quadro de câmera) e devolve a

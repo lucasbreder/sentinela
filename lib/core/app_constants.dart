@@ -24,6 +24,7 @@ abstract final class AppFields {
   static const email = 'email';
   static const registry = 'registry';
   static const ownerId = 'owner_id';
+  static const archived = 'archived';
 }
 
 abstract final class UserRole {

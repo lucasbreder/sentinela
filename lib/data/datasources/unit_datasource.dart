@@ -139,6 +139,26 @@ class FirebaseUnitRepository implements UnitRepository {
   }
 
   @override
+  Future<void> removeMyAccess(String unitId) async {
+    final uid = _currentUserId();
+    await _db
+        .collection(AppCollections.units)
+        .doc(unitId)
+        .collection(AppCollections.permissions)
+        .doc(uid)
+        .delete();
+  }
+
+  @override
+  Future<void> setUnitArchived(String unitId, bool archived) async {
+    await _requireOwner(unitId);
+    await _db
+        .collection(AppCollections.units)
+        .doc(unitId)
+        .update({AppFields.archived: archived});
+  }
+
+  @override
   Future<void> deleteUnit(String unitId) async {
     await _requireOwner(unitId);
     final ownerUid = _currentUserId();

@@ -13,6 +13,8 @@ abstract class UnitRepository {
   Future<List<Permission>> getUnitGuests(String unitId);
   Future<void> addGuest(String unitId, String userId, DateTime? expiresAt);
   Future<void> deleteGuest(String unitId, String permissionId);
+  Future<void> removeMyAccess(String unitId);
+  Future<void> setUnitArchived(String unitId, bool archived);
   Future<void> deleteUnit(String unitId);
   Future<void> removeUserFromAllUnits(String userId);
   Future<void> createInvite(String unitId, String email, DateTime? expiresAt);

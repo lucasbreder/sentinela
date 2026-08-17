@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sentinela/core/app_constants.dart';
 import 'package:sentinela/core/result.dart';
+import 'package:sentinela/data/models/permission.dart';
+import 'package:sentinela/data/models/unit.dart';
 import 'package:sentinela/domain/unit_controller.dart';
 
 import 'fakes.dart';
@@ -55,6 +57,39 @@ void main() {
     final guestId = units.permissions.singleWhere((p) => p.isGuest).id;
     await controller.deleteGuest('u-1', guestId);
     expect(units.permissions.any((p) => p.id == guestId), isFalse);
+  });
+
+  test('removeMyAccess remove apenas a permissão de convidado do usuário', () async {
+    await controller.createUnit('Condomínio A');
+    units.units['u-2'] = const Unit(id: 'u-2', name: 'Unidade Externa', ownerId: 'user-2');
+    units.permissions.add(const Permission(
+      id: 'p-guest',
+      userId: 'user-1',
+      unitId: 'u-2',
+      unitName: 'Unidade Externa',
+      role: UserRole.guest,
+      ownerId: 'user-2',
+    ));
+
+    final result = await controller.removeMyAccess('u-2');
+    expect(result, isA<Success<void>>());
+    expect(units.permissions.any((p) => p.unitId == 'u-2'), isFalse);
+    expect(units.permissions.any((p) => p.isOwner && p.unitId == 'u-1'), isTrue);
+  });
+
+  test('archiveUnit marca a unidade como arquivada', () async {
+    await controller.createUnit('Condomínio A');
+    final result = await controller.archiveUnit('u-1');
+    expect(result, isA<Success<void>>());
+    expect(units.units['u-1']?.archived, isTrue);
+  });
+
+  test('unarchiveUnit desarquiva a unidade', () async {
+    await controller.createUnit('Condomínio A');
+    await controller.archiveUnit('u-1');
+    final result = await controller.unarchiveUnit('u-1');
+    expect(result, isA<Success<void>>());
+    expect(units.units['u-1']?.archived, isFalse);
   });
 
   test('deleteUnit remove a unidade', () async {

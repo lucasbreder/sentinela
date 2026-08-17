@@ -23,7 +23,21 @@ void main() {
     final unit = Unit.fromMap('unit1', {'name': 'Condomínio'});
     expect(unit.id, 'unit1');
     expect(unit.name, 'Condomínio');
+    expect(unit.archived, isFalse);
     expect(unit.toMap(), {'name': 'Condomínio'});
+  });
+
+  test('Unit.fromMap lê o campo archived', () {
+    final unit = Unit.fromMap('unit1', {'name': 'Condomínio', 'archived': true});
+    expect(unit.archived, isTrue);
+  });
+
+  test('Unit.copyWith preserva os demais campos', () {
+    const unit = Unit(id: 'u1', name: 'Condomínio');
+    final archived = unit.copyWith(archived: true);
+    expect(archived.archived, isTrue);
+    expect(archived.name, 'Condomínio');
+    expect(archived.id, 'u1');
   });
 
   test('Registry.fromMap/toMap preserva os campos', () {
