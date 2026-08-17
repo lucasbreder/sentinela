@@ -5,7 +5,7 @@ WORKDIR /app
 COPY . .
 
 RUN flutter pub get
-RUN flutter build web --release --base-href /
+RUN flutter build web --release --base-href / --pwa-strategy none
 
 FROM nginx:alpine
 
