@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:sentinela/core/app_constants.dart';
 import 'package:sentinela/core/service_locator.dart';
@@ -162,13 +163,15 @@ class _RegistryCreateState extends State<RegistryCreate> {
             inputFormatters: [UpperCaseTextFormatter()],
             controller: licensePlateController,
             decoration: InputDecoration(
-              suffixIcon: Padding(
-                padding: const EdgeInsets.only(top: 15),
-                child: GestureDetector(
-                  onTap: _pickPlateByCamera,
-                  child: const Icon(Icons.camera_alt),
-                ),
-              ),
+              suffixIcon: kIsWeb
+                  ? null
+                  : Padding(
+                      padding: const EdgeInsets.only(top: 15),
+                      child: GestureDetector(
+                        onTap: _pickPlateByCamera,
+                        child: const Icon(Icons.camera_alt),
+                      ),
+                    ),
               labelText: 'Placa',
               helperMaxLines: 20,
               helperText:
