@@ -8,6 +8,7 @@ import 'package:sentinela/data/models/registry.dart';
 import 'package:sentinela/data/models/unit.dart';
 import 'package:sentinela/helpers/format_date.dart';
 import 'package:sentinela/widgets/list/report_pdf_item.dart';
+import 'package:sentinela/widgets/select/unit_selector.dart';
 import 'package:sentinela/widgets/title/secondary_title.dart';
 import 'dart:typed_data';
 
@@ -106,56 +107,13 @@ class _ReportListState extends State<ReportList> {
             builder: (context, snapshot) {
               final units = snapshot.data ?? [];
               if (units.isEmpty) return const SizedBox();
-              return SizedBox(
-                height: 70.0 * (units.length / 3).ceilToDouble(),
-                child: GridView.builder(
-                  clipBehavior: Clip.none,
-                  physics: const NeverScrollableScrollPhysics(),
-                  shrinkWrap: true,
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 300,
-                    childAspectRatio: 3.2,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 20,
-                  ),
-                  itemCount: units.length,
-                  itemBuilder: (context, index) {
-                    final data = units[index];
-                    final selected = unitId == data.id;
-                    return GestureDetector(
-                      onTap: () => setState(() {
-                        unitId = data.id;
-                        unitName = data.name;
-                      }),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: selected
-                                ? Theme.of(context).colorScheme.primary
-                                : Theme.of(context).colorScheme.onSurface,
-                            width: selected ? 2 : 1,
-                          ),
-                          borderRadius: const BorderRadius.all(Radius.circular(6)),
-                          color: selected
-                              ? Theme.of(context).colorScheme.primary
-                              : Colors.transparent,
-                        ),
-                        padding: const EdgeInsets.all(10),
-                        child: Text(
-                          data.name,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: selected
-                                ? Colors.white
-                                : Theme.of(context).colorScheme.onSurface,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
+              return UnitSelector(
+                units: units,
+                selectedUnitId: unitId,
+                onSelected: (id) => setState(() {
+                  unitId = id;
+                  unitName = units.firstWhere((u) => u.id == id).name;
+                }),
               );
             },
           ),

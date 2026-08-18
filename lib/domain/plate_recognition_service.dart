@@ -3,11 +3,9 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image/image.dart' as img;
 import 'package:sentinela/domain/image_preprocessor.dart';
-import 'package:sentinela/domain/web_ocr.dart';
 
 /// Resultado do reconhecimento de uma placa.
 class PlateRecognition {
@@ -93,8 +91,8 @@ class PlateTextBlock {
 
 class PlateRecognitionService {
   /// Dimensão máxima (lado maior) para reduzir fotos grandes antes do OCR.
-  /// Fotos de câmera chegam a 12+ MP; processar em tamanho cheio no navegador
-  /// estoura a memória da aba e deixa o OCR lento.
+  /// Fotos de câmera chegam a 12+ MP; processar em tamanho cheio gasta memória
+  /// e deixa o OCR lento.
   static const int _maxOcrDimension = 1600;
 
   /// Quantos blocos candidatos a recortar e reprocessar em alta qualidade.
@@ -113,26 +111,13 @@ class PlateRecognitionService {
   }
 
   /// Reconhece e devolve a primeira placa válida a partir dos bytes de uma
-  /// imagem. No navegador usa o Tesseract.js; em dispositivos móveis processa
-  /// pelo ML Kit com recorte da região da placa (ROI).
+  /// imagem, pelo ML Kit com recorte da região da placa (ROI).
   Future<String?> recognizeBytes(
     Uint8List imageBytes, {
     void Function(double? progress, String? status)? onProgress,
   }) async {
     final decoded = _decodeForOcr(imageBytes);
     if (decoded == null) return null;
-
-    if (kIsWeb) {
-      await ensureTesseractReady(onStatus: (s) => onProgress?.call(null, s));
-      final processed = ImagePreprocessor.upscale(
-        ImagePreprocessor.process(decoded),
-      );
-      final pngBytes = img.encodePng(processed);
-      final text =
-          await webOcrText(pngBytes, 'image/png', onProgress: onProgress);
-      return PlateExtractor.extract(text);
-    }
-
     final recognizer = TextRecognizer(script: TextRecognitionScript.latin);
     try {
       return await _recognizeOnImage(decoded, recognizer);
@@ -157,60 +142,21 @@ class PlateRecognitionService {
     );
   }
 
-  /// Reconhece a placa a partir de um buffer RGBA (quadro da câmera),
-  /// aplicando o recorte (ROI) e re-OCR em alta qualidade.
-  ///
-  /// [recognizer] pode ser informado para reutilizar a instância do streaming.
-  Future<String?> recognizeRgba(
-    Uint8List rgba,
-    int width,
-    int height, {
-    TextRecognizer? recognizer,
-  }) async {
-    final decoded = _imageFromRgba(rgba, width, height);
-    if (decoded == null) return null;
-
-    final owns = recognizer == null;
-    final textRecognizer = recognizer ??
-        TextRecognizer(script: TextRecognitionScript.latin);
-    try {
-      return await _recognizeOnImage(decoded, textRecognizer);
-    } finally {
-      if (owns) unawaited(textRecognizer.close());
-    }
-  }
-
-  img.Image? _imageFromRgba(Uint8List rgba, int width, int height) {
-    if (rgba.length < width * height * 4) return null;
-    return img.Image.fromBytes(
-      width: width,
-      height: height,
-      bytes: rgba.buffer,
-      numChannels: 4,
-      order: img.ChannelOrder.rgba,
+  /// Recorte (ROI) da faixa central da foto, onde a moldura-guia orienta a
+  /// placa. Reduz a área antes do OCR e permite ampliar a placa no passo
+  /// seguinte, melhorando a leitura dos caracteres.
+  static Rect? centerCropRect(int width, int height) {
+    final x = (width * 0.10).round();
+    final right = (width * 0.90).round();
+    final y = (height * 0.30).round();
+    final bottom = (height * 0.70).round();
+    if (right - x < 16 || bottom - y < 16) return null;
+    return Rect.fromLTRB(
+      x.toDouble(),
+      y.toDouble(),
+      right.toDouble(),
+      bottom.toDouble(),
     );
-  }
-
-  /// Processa um [InputImage] (de foto ou quadro de câmera) e devolve a
-  /// primeira placa válida, ou `null` se nada for encontrado.
-  ///
-  /// [recognizer] pode ser informado para reutilizar uma instância no
-  /// streaming (evita recriar o reconhecedor a cada quadro). Quando omitido,
-  /// cria e fecha uma instância própria.
-  Future<String?> processInputImage(
-    InputImage inputImage, {
-    TextRecognizer? recognizer,
-  }) async {
-    final owns = recognizer == null;
-    final textRecognizer = recognizer ??
-        TextRecognizer(script: TextRecognitionScript.latin);
-    try {
-      final recognizedText =
-          await textRecognizer.processImage(inputImage);
-      return _extractPlate(recognizedText);
-    } finally {
-      if (owns) unawaited(textRecognizer.close());
-    }
   }
 
   /// Executa o OCR completo com recorte (ROI) sobre uma imagem decodificada.
@@ -241,6 +187,36 @@ class PlateRecognitionService {
       }
     }
     return null;
+  }
+
+  /// Reconhece a placa a partir de um recorte de quadro em NV21 (já reduzido
+  /// pela ROI), reutilizando o [recognizer] do streaming para não recriar o
+  /// reconhecedor a cada quadro. É o caminho rápido de leitura em tempo real.
+  Future<String?> recognizeNv21(
+    Uint8List nv21,
+    int width,
+    int height, {
+    TextRecognizer? recognizer,
+    InputImageRotation rotation = InputImageRotation.rotation0deg,
+  }) async {
+    final owns = recognizer == null;
+    final textRecognizer = recognizer ??
+        TextRecognizer(script: TextRecognitionScript.latin);
+    try {
+      final inputImage = InputImage.fromBytes(
+        bytes: nv21,
+        metadata: InputImageMetadata(
+          size: Size(width.toDouble(), height.toDouble()),
+          rotation: rotation,
+          format: InputImageFormat.nv21,
+          bytesPerRow: width,
+        ),
+      );
+      final recognizedText = await textRecognizer.processImage(inputImage);
+      return _extractPlate(recognizedText);
+    } finally {
+      if (owns) unawaited(textRecognizer.close());
+    }
   }
 
   /// Roda o reconhecedor e devolve os blocos de texto com suas posições.

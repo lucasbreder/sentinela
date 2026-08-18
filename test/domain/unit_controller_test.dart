@@ -125,6 +125,23 @@ void main() {
     expect(active.single.id, 'u-2');
   });
 
+  test('getActiveUnits mantém unidade de convidado quando a leitura falha', () async {
+    await controller.createUnit('Condomínio A');
+    await controller.archiveUnit('u-1');
+    units.permissions.add(const Permission(
+      id: 'p-guest',
+      userId: 'user-1',
+      unitId: 'u-2',
+      unitName: 'Unidade Externa',
+      role: UserRole.guest,
+      ownerId: 'user-2',
+    ));
+
+    final active = await controller.getActiveUnits();
+    expect(active.length, 1);
+    expect(active.single.name, 'Unidade Externa');
+  });
+
   test('createInvite registra convite sem expor perfil', () async {
     await controller.createUnit('Condomínio A');
     final result = await controller.createInvite('u-1', 'convidado@x.com', null);

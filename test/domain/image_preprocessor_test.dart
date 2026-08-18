@@ -36,6 +36,33 @@ void main() {
     });
   });
 
+  group('ImagePreprocessor.binarize', () {
+    test('separa claros e escuros em preto e branco puros', () {
+      final image = img.Image(width: 2, height: 2)
+        ..setPixelRgb(0, 0, 240, 240, 240)
+        ..setPixelRgb(1, 0, 10, 10, 10)
+        ..setPixelRgb(0, 1, 20, 20, 20)
+        ..setPixelRgb(1, 1, 250, 250, 250);
+      final result = ImagePreprocessor.binarize(image);
+      for (final pixel in result) {
+        final v = pixel.r.toInt();
+        expect(v == 0 || v == 255, true);
+        expect(pixel.g.toInt(), v);
+        expect(pixel.b.toInt(), v);
+      }
+      expect(result.getPixel(0, 0).r.toInt(), 255);
+      expect(result.getPixel(0, 1).r.toInt(), 0);
+    });
+
+    test('process produz apenas pixels binários', () {
+      final result = ImagePreprocessor.process(syntheticImage());
+      for (final pixel in result) {
+        final v = pixel.r.toInt();
+        expect(v == 0 || v == 255, true);
+      }
+    });
+  });
+
   group('ImagePreprocessor.upscale', () {
     test('amplia imagens menores que o alvo', () {
       final small = img.Image(width: 100, height: 50);

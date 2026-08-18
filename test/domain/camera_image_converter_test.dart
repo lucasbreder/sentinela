@@ -53,6 +53,94 @@ void main() {
     });
   });
 
+  group('CameraImageConverter.cropToRoi', () {
+    test('recorta a região central mantendo o plano Y', () {
+      const width = 8;
+      const height = 4;
+      final y = Uint8List(width * height);
+      for (var i = 0; i < y.length; i++) {
+        y[i] = (i % 256);
+      }
+      final uv = Uint8List(4 * 2)..fillRange(0, 8, 200);
+      final image = CameraImage.fromPlatformInterface(pi.CameraImageData(
+        format: const pi.CameraImageFormat(ImageFormatGroup.yuv420, raw: 35),
+        width: width,
+        height: height,
+        planes: [
+          pi.CameraImagePlane(bytes: y, bytesPerRow: width, bytesPerPixel: 1),
+          pi.CameraImagePlane(bytes: uv, bytesPerRow: 4, bytesPerPixel: 2),
+          pi.CameraImagePlane(bytes: uv, bytesPerRow: 4, bytesPerPixel: 2),
+        ],
+      ));
+
+      final roi = CameraImageConverter.cropToRoi(
+        image,
+        const Rect.fromLTWH(2, 0, 4, 4),
+      );
+      expect(roi.width, 4);
+      expect(roi.height, 4);
+      expect(roi.bytes.length, 4 * 4 + 2 * 2 * 2);
+
+      // Plano Y: linhas completas a partir da coluna 2.
+      for (var row = 0; row < 4; row++) {
+        for (var col = 0; col < 4; col++) {
+          expect(roi.bytes[row * 4 + col], y[row * 8 + 2 + col]);
+        }
+      }
+      // Crominância presente (valores 200) no fim do buffer.
+      expect(roi.bytes.sublist(16), everyElement(200));
+    });
+
+    test('arredonda o recorte para dimensões pares', () {
+      const width = 8;
+      const height = 8;
+      final y = Uint8List(width * height);
+      final uv = Uint8List(4 * 4)..fillRange(0, 16, 128);
+      final image = CameraImage.fromPlatformInterface(pi.CameraImageData(
+        format: const pi.CameraImageFormat(ImageFormatGroup.yuv420, raw: 35),
+        width: width,
+        height: height,
+        planes: [
+          pi.CameraImagePlane(bytes: y, bytesPerRow: width, bytesPerPixel: 1),
+          pi.CameraImagePlane(bytes: uv, bytesPerRow: 4, bytesPerPixel: 2),
+          pi.CameraImagePlane(bytes: uv, bytesPerRow: 4, bytesPerPixel: 2),
+        ],
+      ));
+
+      final roi = CameraImageConverter.cropToRoi(
+        image,
+        const Rect.fromLTWH(3, 1, 5, 3),
+      );
+      expect(roi.width, 4);
+      expect(roi.height, 2);
+      expect(roi.bytes.length, 4 * 2 + 2 * 1 * 2);
+    });
+
+    test('limita o recorte aos limites do quadro', () {
+      const width = 8;
+      const height = 8;
+      final y = Uint8List(width * height);
+      final uv = Uint8List(4 * 4)..fillRange(0, 16, 128);
+      final image = CameraImage.fromPlatformInterface(pi.CameraImageData(
+        format: const pi.CameraImageFormat(ImageFormatGroup.yuv420, raw: 35),
+        width: width,
+        height: height,
+        planes: [
+          pi.CameraImagePlane(bytes: y, bytesPerRow: width, bytesPerPixel: 1),
+          pi.CameraImagePlane(bytes: uv, bytesPerRow: 4, bytesPerPixel: 2),
+          pi.CameraImagePlane(bytes: uv, bytesPerRow: 4, bytesPerPixel: 2),
+        ],
+      ));
+
+      final roi = CameraImageConverter.cropToRoi(
+        image,
+        const Rect.fromLTWH(6, 6, 10, 10),
+      );
+      expect(roi.width, 2);
+      expect(roi.height, 2);
+    });
+  });
+
   group('CameraImageConverter.toRgba', () {
     test('converte quadro uniforme para tons de cinza esperados', () {
       final frame = CameraImageConverter.toRgba(_yuv420Image());

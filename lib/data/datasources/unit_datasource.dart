@@ -40,12 +40,18 @@ class FirebaseUnitRepository implements UnitRepository {
     final permissions = await getMyPermissions();
     final units = <Unit>[];
     for (final permission in permissions) {
+      Unit unit;
       try {
-        final unit = await getUnit(permission.unitId);
-        if (!unit.archived) units.add(unit);
+        unit = await getUnit(permission.unitId);
+        if (unit.archived) continue;
       } catch (_) {
-        continue;
+        unit = Unit(
+          id: permission.unitId,
+          name: permission.unitName,
+          ownerId: permission.ownerId,
+        );
       }
+      units.add(unit);
     }
     return units;
   }

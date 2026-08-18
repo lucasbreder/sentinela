@@ -4,42 +4,33 @@ import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:sentinela/core/service_locator.dart';
 import 'package:sentinela/domain/camera_image_converter.dart';
-import 'package:sentinela/domain/web_ocr.dart';
+import 'package:sentinela/domain/plate_recognition_service.dart';
 
 /// Tela que escaneia placas.
 ///
-/// Em dispositivos móveis escaneia em tempo real a partir do feed da câmera,
-/// processando os quadros com debounce e aplicando recorte (ROI) como reforço
-/// de precisão. Oferece também uma captura de foto como alternativa. No
-/// navegador (web) tira/abre uma foto e executa o OCR, devolvendo o valor via
-/// `Navigator.pop`.
+/// Escaneia em tempo real a partir do feed da câmera com o ML Kit (on-device),
+/// processando os quadros com debounce e recorte (ROI) como reforço de
+/// precisão. Oferece também uma captura de foto como alternativa, devolvendo
+/// o valor via `Navigator.pop`.
 class PlateScannerPage extends StatefulWidget {
   const PlateScannerPage({super.key});
 
   /// Intervalo mínimo entre dois processamentos de OCR (em milissegundos).
-  static const processEveryMs = 400;
-
-  /// Intervalo mínimo entre duas passadas de recorte (ROI) no streaming.
-  static const roiEveryMs = 2000;
+  static const processEveryMs = 250;
 
   @override
   State<PlateScannerPage> createState() => _PlateScannerPageState();
 }
 
 class _PlateScannerPageState extends State<PlateScannerPage> {
-  final ImagePicker _imagePicker = ImagePicker();
-
   CameraController? _controller;
   TextRecognizer? _recognizer;
   bool _processing = false;
   bool _cameraReady = false;
-  final bool _webMode = kIsWeb;
   String? _error;
   DateTime _lastProcessedAt = DateTime.fromMillisecondsSinceEpoch(0);
-  DateTime _lastRoiAt = DateTime.fromMillisecondsSinceEpoch(0);
   bool _closed = false;
   Uint8List? _photo;
   String? _ocrStatus;
@@ -48,75 +39,7 @@ class _PlateScannerPageState extends State<PlateScannerPage> {
   @override
   void initState() {
     super.initState();
-    if (kIsWeb) {
-      unawaited(_prepareWebOcr());
-    } else {
-      _initCamera();
-    }
-  }
-
-  Future<void> _prepareWebOcr() async {
-    try {
-      await ensureTesseractReady(onStatus: _setOcrStatus);
-      if (_closed) return;
-      unawaited(_pickPhoto());
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _error = 'Não foi possível carregar o OCR.');
-    }
-  }
-
-  void _setOcrStatus(String? status) {
-    if (!mounted) return;
-    setState(() => _ocrStatus = status);
-  }
-
-  Future<void> _pickPhoto() async {
-    try {
-      final image = await _imagePicker.pickImage(source: ImageSource.camera);
-      if (image == null) {
-        if (mounted) Navigator.of(context).pop();
-        return;
-      }
-      final bytes = await image.readAsBytes();
-      if (!mounted) return;
-      setState(() {
-        _photo = bytes;
-        _processing = true;
-        _error = null;
-        _ocrStatus = 'Processando imagem...';
-        _ocrProgress = 0;
-      });
-
-      final plate =
-          await ServiceLocator.instance.plateRecognition.recognizeBytes(
-        bytes,
-        onProgress: (progress, status) {
-          if (!mounted) return;
-          setState(() {
-            _ocrProgress = progress;
-            if (status != null) _ocrStatus = status;
-          });
-        },
-      );
-      if (!mounted) return;
-      setState(() => _processing = false);
-      if (plate != null) {
-        Navigator.of(context).pop(plate);
-      } else {
-        setState(() {
-          _error = 'Nenhuma placa reconhecida. Tente outra foto.';
-          _ocrStatus = null;
-        });
-      }
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _processing = false;
-        _ocrStatus = null;
-        _error = 'Não foi possível processar a foto.';
-      });
-    }
+    _initCamera();
   }
 
   Future<void> _initCamera() async {
@@ -128,7 +51,7 @@ class _PlateScannerPageState extends State<PlateScannerPage> {
       );
       final controller = CameraController(
         camera,
-        ResolutionPreset.high,
+        ResolutionPreset.medium,
         enableAudio: false,
       );
       _controller = controller;
@@ -200,40 +123,27 @@ class _PlateScannerPageState extends State<PlateScannerPage> {
     unawaited(_processFrame(image));
   }
 
+  /// Processa cada quadro recortando a faixa central (onde a moldura-guia
+  /// orienta a placa) antes do OCR. Recortar deixa a placa maior e o OCR mais
+  /// rápido e preciso; confirma na primeira leitura válida.
   Future<void> _processFrame(CameraImage image) async {
     final recognizer = _recognizer;
     if (recognizer == null) return;
     try {
       final rotation = _rotationForImage(image);
-      final inputImage = CameraImageConverter.convert(image, rotation);
-      final plate =
-          await ServiceLocator.instance.plateRecognition.processInputImage(
-        inputImage,
+      final rect =
+          PlateRecognitionService.centerCropRect(image.width, image.height);
+      if (rect == null) return;
+      final roi = CameraImageConverter.cropToRoi(image, rect);
+      final plate = await ServiceLocator.instance.plateRecognition
+          .recognizeNv21(
+        roi.bytes,
+        roi.width,
+        roi.height,
         recognizer: recognizer,
+        rotation: rotation,
       );
-      if (plate != null) {
-        _finish(plate);
-        return;
-      }
-
-      // Reforço de precisão: converte o quadro e re-OCR a região da placa.
-      final now = DateTime.now();
-      if (now.difference(_lastRoiAt).inMilliseconds >=
-          PlateScannerPage.roiEveryMs) {
-        _lastRoiAt = now;
-        final frame = CameraImageConverter.toRgba(image);
-        final roiPlate = await ServiceLocator.instance.plateRecognition
-            .recognizeRgba(
-          frame.bytes,
-          frame.width,
-          frame.height,
-          recognizer: recognizer,
-        );
-        if (roiPlate != null) {
-          _finish(roiPlate);
-          return;
-        }
-      }
+      if (plate != null) _finish(plate);
     } catch (_) {
       // ignora falha pontual de um quadro; segue escaneando.
     } finally {
@@ -279,8 +189,8 @@ class _PlateScannerPageState extends State<PlateScannerPage> {
       body: SafeArea(
         child: Stack(
           children: [
-            Positioned.fill(child: _buildBody()),
-            if (!_webMode) const Positioned.fill(child: _ScannerOverlay()),
+            Positioned.fill(child: _buildPreview()),
+            const Positioned.fill(child: _ScannerOverlay()),
             Positioned(
               top: 12,
               left: 12,
@@ -289,52 +199,14 @@ class _PlateScannerPageState extends State<PlateScannerPage> {
                 onPressed: () => Navigator.of(context).pop(),
               ),
             ),
-            if (_webMode)
-              _buildWebFooter()
-            else
-              _buildMobileFooter(),
+            _buildMobileFooter(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildBody() {
-    if (_webMode) return _buildWebBody();
-    return _buildMobilePreview();
-  }
-
-  Widget _buildWebBody() {
-    final photo = _photo;
-    if (photo != null) {
-      return Image.memory(photo, fit: BoxFit.contain);
-    }
-    if (_error != null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              _error!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white, fontSize: 16),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: _pickPhoto,
-              icon: const Icon(Icons.photo_camera),
-              label: const Text('Tentar novamente'),
-            ),
-          ],
-        ),
-      );
-    }
-    return const Center(
-      child: CircularProgressIndicator(color: Colors.white),
-    );
-  }
-
-  Widget _buildMobilePreview() {
+  Widget _buildPreview() {
     if (_error != null) {
       return Center(
         child: Text(_error!, style: const TextStyle(color: Colors.white)),
@@ -346,43 +218,6 @@ class _PlateScannerPageState extends State<PlateScannerPage> {
       );
     }
     return CameraPreview(_controller!);
-  }
-
-  Widget _buildWebFooter() {
-    return Positioned(
-      bottom: 24,
-      left: 0,
-      right: 0,
-      child: Center(
-        child: _processing
-            ? Column(
-                children: [
-                  const CircularProgressIndicator(color: Colors.white),
-                  const SizedBox(height: 12),
-                  Text(
-                    _ocrStatus ?? 'Processando imagem...',
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
-                  ),
-                  if (_ocrProgress != null) ...[
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: 180,
-                      child: LinearProgressIndicator(
-                        value: _ocrProgress,
-                        backgroundColor: Colors.white24,
-                        valueColor: const AlwaysStoppedAnimation(Colors.white),
-                      ),
-                    ),
-                  ],
-                ],
-              )
-            : ElevatedButton.icon(
-                onPressed: _pickPhoto,
-                icon: const Icon(Icons.photo_camera),
-                label: const Text('Tirar foto da placa'),
-              ),
-      ),
-    );
   }
 
   Widget _buildMobileFooter() {

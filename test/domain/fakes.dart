@@ -115,7 +115,15 @@ class FakeUnitRepository implements UnitRepository {
     final result = <Unit>[];
     for (final permission in await getMyPermissions()) {
       final unit = units[permission.unitId];
-      if (unit != null && !unit.archived) result.add(unit);
+      if (unit == null) {
+        result.add(Unit(
+          id: permission.unitId,
+          name: permission.unitName,
+          ownerId: permission.ownerId,
+        ));
+      } else if (!unit.archived) {
+        result.add(unit);
+      }
     }
     return result;
   }

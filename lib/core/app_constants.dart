@@ -36,3 +36,9 @@ abstract final class MovementType {
   static const entrada = 'Entrada';
   static const saida = 'Saída';
 }
+
+abstract final class AppConfig {
+  /// Chave da API Plate Recognizer (plano gratuito). Sem backend, a chave fica
+  /// no app; se vazia, a confirmação em nuvem fica desativada.
+  static const plateRecognizerApiKey = '';
+}

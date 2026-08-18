@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:sentinela/core/app_routes.dart';
 import 'package:sentinela/core/service_locator.dart';
@@ -76,7 +78,7 @@ class _LoginState extends State<Login> {
                   top: 240,
                   left: 45,
                   child: Container(
-                      width: MediaQuery.of(context).size.width - 80,
+                      width: math.max(0, MediaQuery.of(context).size.width - 80),
                       height: 345,
                       decoration: BoxDecoration(
                         borderRadius:

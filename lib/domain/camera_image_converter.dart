@@ -15,6 +15,18 @@ class RgbaFrame {
   final int height;
 }
 
+/// Recorte (ROI) de um quadro da câmera em NV21, pronto para o ML Kit.
+///
+/// O buffer é um plano Y de `width * height` seguido da crominância VU
+/// intercalada para `(width/2) * (height/2)`, com `bytesPerRow = width`.
+class RoiFrame {
+  const RoiFrame({required this.bytes, required this.width, required this.height});
+
+  final Uint8List bytes;
+  final int width;
+  final int height;
+}
+
 /// Converte um quadro da câmera ([CameraImage]) em um [InputImage] aceito pelo
 /// ML Kit. A conversão depende da plataforma e do formato do plano.
 abstract final class CameraImageConverter {
@@ -146,6 +158,49 @@ abstract final class CameraImageConverter {
       }
     }
     return RgbaFrame(bytes: out, width: width, height: height);
+  }
+
+  /// Recorta uma região de interesse ([Rect]) de um quadro da câmera e devolve
+  /// um buffer NV21 menor, sem converter o quadro inteiro para RGBA.
+  ///
+  /// O recorte mantém alinhamento par para a crominância ficar válida. Como o
+  /// ML Kit roda o OCR apenas sobre a região recortada, o processamento fica
+  /// mais rápido e a placa (centralizada) ganha resolução relativa.
+  static RoiFrame cropToRoi(CameraImage image, Rect roi) {
+    final width = image.width;
+    final height = image.height;
+    final x = ((roi.left.round()) & ~1).clamp(0, width - 2);
+    final y = ((roi.top.round()) & ~1).clamp(0, height - 2);
+    final w = ((roi.width.round()) & ~1).clamp(2, width - x);
+    final h = ((roi.height.round()) & ~1).clamp(2, height - y);
+    final yPlane = image.planes[0];
+    final cw = w ~/ 2;
+    final ch = h ~/ 2;
+
+    final out = Uint8List(w * h + cw * ch * 2);
+    for (var row = 0; row < h; row++) {
+      final srcRow = (y + row) * yPlane.bytesPerRow;
+      out.setRange(row * w, row * w + w, yPlane.bytes, srcRow + x);
+    }
+
+    if (image.planes.length >= 3) {
+      final u = image.planes[1];
+      final v = image.planes[2];
+      final cx = x ~/ 2;
+      final cy = y ~/ 2;
+      var offset = w * h;
+      for (var crow = 0; crow < ch; crow++) {
+        final srcU = (cy + crow) * u.bytesPerRow;
+        final srcV = (cy + crow) * v.bytesPerRow;
+        for (var ccol = 0; ccol < cw; ccol++) {
+          out[offset++] = v.bytes[srcV + cx + ccol];
+          out[offset++] = u.bytes[srcU + cx + ccol];
+        }
+      }
+    } else {
+      out.fillRange(w * h, out.length, 128);
+    }
+    return RoiFrame(bytes: out, width: w, height: h);
   }
 
   /// Intercala U e V no padrão NV21 (V depois U), para conversão direta.
