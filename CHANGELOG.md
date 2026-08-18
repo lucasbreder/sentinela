@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.2.0 (5)
+## 1.2.0 (6)
 
 ### Melhorias
 - Leitura de placas mais rápida e precisa no Android (ML Kit on-device)
