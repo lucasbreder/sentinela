@@ -17,6 +17,7 @@ class _MyUnitsListState extends State<MyUnitsList> {
   final List<Widget> _units = [];
   final List<Widget> _archivedUnits = [];
   String? _error;
+  bool _loading = true;
 
   Future<void> _confirmRemoveAccess(Permission permission) async {
     final confirm = await showDialog<bool>(
@@ -154,6 +155,7 @@ class _MyUnitsListState extends State<MyUnitsList> {
       _units.clear();
       _archivedUnits.clear();
       _error = null;
+      _loading = true;
     });
 
     final List<Permission> permissions;
@@ -161,7 +163,10 @@ class _MyUnitsListState extends State<MyUnitsList> {
       permissions = await ServiceLocator.instance.units.getMyPermissions();
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = e.toString());
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
       return;
     }
     if (!mounted) return;
@@ -189,6 +194,7 @@ class _MyUnitsListState extends State<MyUnitsList> {
       _archivedUnits
         ..clear()
         ..addAll(archived);
+      _loading = false;
     });
   }
 
@@ -405,6 +411,8 @@ class _MyUnitsListState extends State<MyUnitsList> {
             onPressed: _loadUnits,
             child: const Text('Tentar novamente'),
           ),
+        ] else if (_loading) ...[
+          const Center(child: CircularProgressIndicator()),
         ] else ...[
           Wrap(children: _units),
           if (_archivedUnits.isNotEmpty) ...[

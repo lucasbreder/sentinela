@@ -1,16 +1,23 @@
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:file_saver/file_saver.dart';
 import 'package:sentinela/core/service_locator.dart';
 import 'package:sentinela/data/models/registry.dart';
 import 'package:sentinela/data/models/unit.dart';
+import 'package:sentinela/domain/flow_report_service.dart';
 import 'package:sentinela/helpers/format_date.dart';
+import 'package:sentinela/widgets/chart/hourly_flow_chart.dart';
 import 'package:sentinela/widgets/list/report_pdf_item.dart';
 import 'package:sentinela/widgets/select/unit_selector.dart';
 import 'package:sentinela/widgets/title/secondary_title.dart';
-import 'dart:typed_data';
 
 class ReportList extends StatefulWidget {
   const ReportList({super.key});
@@ -25,6 +32,13 @@ class _ReportListState extends State<ReportList> {
   String unitName = '';
 
   final dateFilterController = TextEditingController();
+  late final Future<List<Unit>> _unitsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _unitsFuture = ServiceLocator.instance.units.getActiveUnits();
+  }
 
   Future<void> _pickDate() async {
     final pickedDate = await showDatePicker(
@@ -49,7 +63,13 @@ class _ReportListState extends State<ReportList> {
   }
 
   Future<void> _savePdf(List<Registry> registries) async {
-    final pdf = pw.Document();
+    final ttf = await rootBundle.load('assets/fonts/monda-regular.ttf');
+    final boldTtf = await rootBundle.load('assets/fonts/monda-bold.ttf');
+    final font = pw.Font.ttf(ttf);
+    final boldFont = pw.Font.ttf(boldTtf);
+    final pdf = pw.Document(
+      theme: pw.ThemeData.withFont(base: font, bold: boldFont),
+    );
     final pdfReport = registries.map(registryPdfItem).toList();
 
     pdf.addPage(
@@ -62,7 +82,7 @@ class _ReportListState extends State<ReportList> {
             children: [
               pw.SizedBox(height: 8),
               pw.Text(
-                'Relatório criado com o app Sentinela disponível no Google Play e Apple Store',
+                'Relatório criado com o app Sentinela disponível no Google Play',
                 style: const pw.TextStyle(fontSize: 7),
               )
             ],
@@ -88,11 +108,29 @@ class _ReportListState extends State<ReportList> {
     );
 
     final Uint8List file = await pdf.save();
-    await FileSaver.instance.saveFile(
-      name: 'Relatorio-${DateTime.now().toString()}',
-      bytes: file,
-      mimeType: MimeType.pdf,
-    );
+    final timestamp = DateFormat('yyyyMMdd-HHmmss').format(DateTime.now());
+    try {
+      final path = await FileSaver.instance.saveAs(
+        name: 'Relatorio-$timestamp',
+        bytes: file,
+        fileExtension: 'pdf',
+        mimeType: MimeType.pdf,
+      );
+      if (path == null) return;
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File('${tempDir.path}/Relatorio-$timestamp.pdf');
+      await tempFile.writeAsBytes(file);
+      await Share.shareXFiles(
+        [XFile(tempFile.path, mimeType: 'application/pdf')],
+        subject: 'Relatório de guarda - $unitName',
+        text: 'Relatório de guarda - $unitName',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao salvar PDF: $e')),
+      );
+    }
   }
 
   @override
@@ -103,8 +141,16 @@ class _ReportListState extends State<ReportList> {
         const SecondaryTitle(title: 'Selecione uma unidade'),
         Flexible(
           child: FutureBuilder<List<Unit>>(
-            future: ServiceLocator.instance.units.getActiveUnits(),
+            future: _unitsFuture,
             builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: CircularProgressIndicator(),
+                  ),
+                );
+              }
               final units = snapshot.data ?? [];
               if (units.isEmpty) return const SizedBox();
               return UnitSelector(
@@ -163,8 +209,14 @@ class _ReportListState extends State<ReportList> {
                   );
                 }
 
+                final flow = FlowReportService.hourly(registries);
+
                 return Column(
                   children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: HourlyFlowChart(flow: flow),
+                    ),
                     GestureDetector(
                       onTap: () => _savePdf(registries),
                       child: Container(

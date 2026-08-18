@@ -15,15 +15,17 @@ class UnitSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 10,
-      runSpacing: 20,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (final data in units)
-          _UnitTile(
-            label: data.name,
-            selected: selectedUnitId == data.id,
-            onTap: () => onSelected(data.id),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: _UnitTile(
+              label: data.name,
+              selected: selectedUnitId == data.id,
+              onTap: () => onSelected(data.id),
+            ),
           ),
       ],
     );
@@ -46,7 +48,6 @@ class _UnitTile extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        constraints: const BoxConstraints(minWidth: 140, maxWidth: 300),
         decoration: BoxDecoration(
           border: Border.all(
             color: selected
@@ -59,7 +60,7 @@ class _UnitTile extends StatelessWidget {
               ? Theme.of(context).colorScheme.primary
               : Colors.transparent,
         ),
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.all(12),
         child: Text(
           label,
           textAlign: TextAlign.center,

@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:sentinela/core/app_routes.dart';
 import 'package:sentinela/pages/create_sentinel_registry_page.dart';
 import 'package:sentinela/pages/create_units_page.dart';
+import 'package:sentinela/pages/driver_lookup_page.dart';
 import 'package:sentinela/pages/nav_page.dart';
 import 'package:sentinela/pages/profile_page.dart';
 import 'package:sentinela/pages/report_page.dart';
@@ -72,6 +73,7 @@ class MyApp extends StatelessWidget {
         AppRoutes.createCarRegistry: (context) => const CreateSentinelRegistryPage(),
         AppRoutes.nav: (context) => const NavPage(),
         AppRoutes.report: (context) => const ReportPage(),
+        AppRoutes.driverLookup: (context) => const DriverLookupPage(),
         AppRoutes.profile: (context) => const ProfilePage(),
       },
     );

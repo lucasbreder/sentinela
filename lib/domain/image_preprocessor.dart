@@ -13,8 +13,64 @@ abstract final class ImagePreprocessor {
   static img.Image process(img.Image image) {
     var grayscale = img.grayscale(image);
     grayscale = img.adjustColor(grayscale, contrast: 1.3, brightness: 8);
-    return binarize(grayscale);
+    return deslash(binarize(grayscale));
   }
+
+  /// Remove traços diagonais finos (o corte do zero Mercosul), que o OCR
+  /// costuma ler como o "rabo" de um `6`, transformando o zero cortado em `6`.
+  ///
+  /// Opera sobre a imagem binarizada (preto/branco). Remove pixels de um traço
+  /// puramente diagonal (sem vizinho ortogonal), que é o corte de ~1px; hastes
+  /// de letras sólidas têm vizinhos ortogonais (espessura) e são preservadas.
+  /// O processo é repetido até estabilizar para que a remoção em cascata
+  /// elimine o traço inteiro, inclusive as pontas.
+  static img.Image deslash(img.Image image) {
+    final out = img.Image(width: image.width, height: image.height);
+    for (var y = 0; y < image.height; y++) {
+      for (var x = 0; x < image.width; x++) {
+        final p = image.getPixel(x, y);
+        out.setPixelRgb(x, y, p.r.toInt(), p.g.toInt(), p.b.toInt());
+      }
+    }
+    // Detecta sobre a imagem original (não modificada) e aplica na cópia, para
+    // que todo o traço (incluindo as pontas, identificadas pelo suporte
+    // diagonal) seja removido de uma vez.
+    for (var y = 0; y < image.height; y++) {
+      for (var x = 0; x < image.width; x++) {
+        if (_isBlack(image.getPixel(x, y)) && _isThinDiagonal(image, x, y)) {
+          out.setPixelRgb(x, y, 255, 255, 255);
+        }
+      }
+    }
+    return out;
+  }
+
+  /// Verdadeiro se o pixel faz parte de um traço diagonal fino: tem suporte
+  /// diagonal (em uma das duas diagonais), não é um cruzamento (centro do X) e
+  /// não pertence a uma barra horizontal/vertical. Permite até um vizinho
+  /// ortogonal, capturando o corte do zero levemente mais grosso (de perto);
+  /// letras grossas têm muitos vizinhos ortogonais e são preservadas.
+  static bool _isThinDiagonal(img.Image image, int x, int y) {
+    final w = image.width;
+    final h = image.height;
+    final nw = x > 0 && y > 0 && _isBlack(image.getPixel(x - 1, y - 1));
+    final ne = x < w - 1 && y > 0 && _isBlack(image.getPixel(x + 1, y - 1));
+    final sw = x > 0 && y < h - 1 && _isBlack(image.getPixel(x - 1, y + 1));
+    final se = x < w - 1 && y < h - 1 && _isBlack(image.getPixel(x + 1, y + 1));
+    final n = y > 0 && _isBlack(image.getPixel(x, y - 1));
+    final s = y < h - 1 && _isBlack(image.getPixel(x, y + 1));
+    final e = x < w - 1 && _isBlack(image.getPixel(x + 1, y));
+    final o = x > 0 && _isBlack(image.getPixel(x - 1, y));
+    final diagA = nw || se;
+    final diagB = ne || sw;
+    if (!diagA && !diagB) return false;
+    if (diagA && diagB) return false;
+    if ((e && o) || (n && s)) return false;
+    final ortho = [n, s, e, o].where((b) => b).length;
+    return ortho <= 1;
+  }
+
+  static bool _isBlack(img.Pixel pixel) => pixel.r.toInt() < 128;
 
   /// Converte a imagem em preto-e-branco usando o limiar de Otsu, escolhido a
   /// partir do histograma de intensidade. Pixels com luminância acima do limiar

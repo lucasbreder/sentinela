@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.0 (5)
+
+### Melhorias
+- Leitura de placas mais rápida e precisa no Android (ML Kit on-device)
+- Correção de layout na tela de login em alguns aparelhos
+- Ícone de câmera oculto na tela de registro na versão web
+
 ## 1.2.0 (3)
 
 ### Novidades

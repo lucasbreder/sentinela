@@ -1,11 +1,11 @@
 import 'dart:async';
 
 import 'package:camera/camera.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:sentinela/core/service_locator.dart';
 import 'package:sentinela/domain/camera_image_converter.dart';
+import 'package:sentinela/domain/plate_color_detector.dart';
 import 'package:sentinela/domain/plate_recognition_service.dart';
 
 /// Tela que escaneia placas.
@@ -32,9 +32,6 @@ class _PlateScannerPageState extends State<PlateScannerPage> {
   String? _error;
   DateTime _lastProcessedAt = DateTime.fromMillisecondsSinceEpoch(0);
   bool _closed = false;
-  Uint8List? _photo;
-  String? _ocrStatus;
-  double? _ocrProgress;
 
   @override
   void initState() {
@@ -51,7 +48,7 @@ class _PlateScannerPageState extends State<PlateScannerPage> {
       );
       final controller = CameraController(
         camera,
-        ResolutionPreset.medium,
+        ResolutionPreset.high,
         enableAudio: false,
       );
       _controller = controller;
@@ -67,46 +64,6 @@ class _PlateScannerPageState extends State<PlateScannerPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = 'Não foi possível acessar a câmera.');
-    }
-  }
-
-  /// Captura uma foto de alta resolução como alternativa ao streaming.
-  Future<void> _capturePhoto() async {
-    final controller = _controller;
-    if (controller == null) return;
-    try {
-      await controller.stopImageStream();
-      final file = await controller.takePicture();
-      final bytes = await file.readAsBytes();
-      if (!mounted) return;
-      setState(() {
-        _photo = bytes;
-        _processing = true;
-        _error = null;
-        _ocrStatus = 'Processando imagem...';
-        _ocrProgress = 0;
-      });
-      final plate =
-          await ServiceLocator.instance.plateRecognition.recognizeBytes(bytes);
-      if (!mounted) return;
-      setState(() => _processing = false);
-      if (plate != null) {
-        _finish(plate);
-      } else {
-        setState(() {
-          _error = 'Nenhuma placa reconhecida. Tente novamente.';
-          _ocrStatus = null;
-        });
-        // retorna ao streaming para nova tentativa
-        unawaited(_initCamera());
-      }
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _processing = false;
-        _error = 'Não foi possível processar a foto.';
-      });
-      unawaited(_initCamera());
     }
   }
 
@@ -135,15 +92,23 @@ class _PlateScannerPageState extends State<PlateScannerPage> {
           PlateRecognitionService.centerCropRect(image.width, image.height);
       if (rect == null) return;
       final roi = CameraImageConverter.cropToRoi(image, rect);
-      final plate = await ServiceLocator.instance.plateRecognition
+      // Infere o tipo de placa pela cor da faixa superior (Mercosul tem banda
+      // azul) para restringir o padrão de extração e reduzir as alternativas.
+      final type = PlateColorDetector.detectNv21(
+        roi.bytes,
+        roi.width,
+        roi.height,
+      );
+      final result = await ServiceLocator.instance.plateRecognition
           .recognizeNv21(
         roi.bytes,
         roi.width,
         roi.height,
         recognizer: recognizer,
         rotation: rotation,
+        type: type,
       );
-      if (plate != null) _finish(plate);
+      if (result.candidates.isNotEmpty) unawaited(_presentCandidates(result));
     } catch (_) {
       // ignora falha pontual de um quadro; segue escaneando.
     } finally {
@@ -156,6 +121,50 @@ class _PlateScannerPageState extends State<PlateScannerPage> {
     _closed = true;
     if (mounted) Navigator.of(context).pop(plate);
   }
+
+  /// Confirma a placa: se houver apenas uma leitura, finaliza direto. Se a
+  /// leitura for ambígua (ex.: zero cortado `0/6`), só abre o diálogo de opções
+  /// quando a confiança do OCR for baixa — com alta confiança, confia na
+  /// primeira leitura.
+  Future<void> _presentCandidates(PlateReadingResult result) async {
+    if (_closed) return;
+    final unique = result.candidates.toSet().toList();
+    if (unique.length == 1) {
+      _finish(unique.first);
+      return;
+    }
+    if (result.confidence >= _confidenceThreshold) {
+      _finish(unique.first);
+      return;
+    }
+    await _controller?.stopImageStream();
+    if (!mounted) return;
+    final picked = await showDialog<String>(
+      context: context,
+      builder: (context) => _PlateChoiceDialog(
+        candidates: unique.take(_maxChoices).toList(),
+        hiddenCount: unique.length > _maxChoices ? unique.length - _maxChoices : 0,
+      ),
+    );
+    if (_closed) return;
+    if (picked != null) {
+      _finish(picked);
+      return;
+    }
+    // usuário cancelou: volta a escanear.
+    setState(() {
+      _cameraReady = false;
+      _error = null;
+    });
+    unawaited(_initCamera());
+  }
+
+  /// Quantidade máxima de alternativas exibidas no diálogo de confirmação.
+  static const int _maxChoices = 4;
+
+  /// Confiança do OCR (0..1) a partir da qual uma leitura é considerada segura
+  /// e não abre o diálogo de confirmação.
+  static const double _confidenceThreshold = 0.7;
 
   /// Converte a orientação do sensor da câmera para o [InputImageRotation].
   InputImageRotation _rotationForImage(CameraImage image) {
@@ -221,40 +230,15 @@ class _PlateScannerPageState extends State<PlateScannerPage> {
   }
 
   Widget _buildMobileFooter() {
-    final photo = _photo;
-    return Positioned(
+    return const Positioned(
       bottom: 24,
       left: 0,
       right: 0,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (_processing && photo != null)
-            Text(
-              _ocrStatus ?? 'Processando imagem...',
-              style: const TextStyle(color: Colors.white, fontSize: 14),
-            ),
-          const SizedBox(height: 8),
-          Center(
-            child: _processing && photo != null
-                ? const CircularProgressIndicator(color: Colors.white)
-                : Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text(
-                        'Aponte a câmera para a placa',
-                        style: TextStyle(color: Colors.white, fontSize: 16),
-                      ),
-                      const SizedBox(height: 12),
-                      ElevatedButton.icon(
-                        onPressed: _capturePhoto,
-                        icon: const Icon(Icons.photo_camera),
-                        label: const Text('Capturar foto'),
-                      ),
-                    ],
-                  ),
-          ),
-        ],
+      child: Center(
+        child: Text(
+          'Aponte a câmera para a placa',
+          style: TextStyle(color: Colors.white, fontSize: 16),
+        ),
       ),
     );
   }
@@ -281,6 +265,55 @@ class _ScannerOverlay extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// Diálogo que apresenta leituras alternativas da placa (ex.: `0`/`6`) para o
+/// usuário confirmar a correta. As opções são limitadas e roláveis para não
+/// quebrar o layout em placas muito ambíguas.
+class _PlateChoiceDialog extends StatelessWidget {
+  const _PlateChoiceDialog({required this.candidates, this.hiddenCount = 0});
+
+  final List<String> candidates;
+  final int hiddenCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Confirme a placa'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final plate in candidates)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () => Navigator.of(context).pop(plate),
+                    child: Text(plate, style: const TextStyle(fontSize: 22)),
+                  ),
+                ),
+              ),
+            if (hiddenCount > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  'Mais $hiddenCount opção(ões) não exibida(s)',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Tentar novamente'),
+        ),
+      ],
     );
   }
 }

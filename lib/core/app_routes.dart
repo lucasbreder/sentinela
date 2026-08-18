@@ -7,5 +7,6 @@ abstract final class AppRoutes {
   static const createCarRegistry = '/createCarRegistry';
   static const nav = '/nav';
   static const report = '/report';
+  static const driverLookup = '/driverLookup';
   static const profile = '/profile';
 }

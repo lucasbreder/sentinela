@@ -4,8 +4,8 @@ import 'package:sentinela/core/app_constants.dart';
 import 'package:sentinela/core/service_locator.dart';
 import 'package:sentinela/data/models/registry.dart';
 import 'package:sentinela/data/models/unit.dart';
-import 'package:sentinela/helpers/text_uppercase_formater.dart';
 import 'package:sentinela/pages/plate_scanner_page.dart';
+import 'package:sentinela/widgets/create/plate_input_field.dart';
 import 'package:sentinela/widgets/select/unit_selector.dart';
 import 'package:sentinela/widgets/title/page_title.dart';
 import 'package:sentinela/widgets/title/secondary_title.dart';
@@ -31,9 +31,10 @@ class _RegistryCreateState extends State<RegistryCreate> {
   final notesController = TextEditingController();
 
   final _formKey = GlobalKey<FormState>();
+  late final Future<List<Unit>> _unitsFuture;
 
   Future<void> _selectFirstUnit() async {
-    final units = await ServiceLocator.instance.units.getActiveUnits();
+    final units = await _unitsFuture;
     if (units.isNotEmpty && mounted) {
       setState(() => unitId = units.first.id);
     }
@@ -127,6 +128,7 @@ class _RegistryCreateState extends State<RegistryCreate> {
 
   @override
   void initState() {
+    _unitsFuture = ServiceLocator.instance.units.getActiveUnits();
     _selectFirstUnit();
     super.initState();
   }
@@ -148,8 +150,16 @@ class _RegistryCreateState extends State<RegistryCreate> {
           ),
           const SecondaryTitle(title: 'Unidades'),
           FutureBuilder<List<Unit>>(
-            future: ServiceLocator.instance.units.getActiveUnits(),
+            future: _unitsFuture,
             builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: CircularProgressIndicator(),
+                  ),
+                );
+              }
               final units = snapshot.data ?? [];
               if (units.isEmpty) return const SizedBox();
               return UnitSelector(
@@ -159,25 +169,12 @@ class _RegistryCreateState extends State<RegistryCreate> {
               );
             },
           ),
-          TextFormField(
-            inputFormatters: [UpperCaseTextFormatter()],
+          const SizedBox(height: 16),
+          const SecondaryTitle(title: 'Placa'),
+          PlateInputField(
             controller: licensePlateController,
-            decoration: InputDecoration(
-              suffixIcon: kIsWeb
-                  ? null
-                  : Padding(
-                      padding: const EdgeInsets.only(top: 15),
-                      child: GestureDetector(
-                        onTap: _pickPlateByCamera,
-                        child: const Icon(Icons.camera_alt),
-                      ),
-                    ),
-              labelText: 'Placa',
-              helperMaxLines: 20,
-              helperText:
-                  'Caso o veículo já tenha se movimentado na sua unidade os dados do último condutor serão automaticamente preenchidos',
-              helperStyle: const TextStyle(fontSize: 11),
-            ),
+            showCameraButton: !kIsWeb,
+            onCameraTap: _pickPlateByCamera,
             onChanged: (value) {
               setState(() => licensePlate = value.toUpperCase());
               if (value.length > 4) {
@@ -185,23 +182,34 @@ class _RegistryCreateState extends State<RegistryCreate> {
               }
             },
             validator: (value) =>
-                value == null || value.isEmpty ? 'Campo Obrigatório' : null,
+                value == null || value.length < 7 ? 'Digite a placa completa' : null,
           ),
+          const SizedBox(height: 16),
+          const SecondaryTitle(title: 'Dados do Condutor'),
           TextFormField(
             controller: driverNameController,
-            decoration: const InputDecoration(labelText: 'Nome'),
+            decoration: const InputDecoration(
+              labelText: 'Nome',
+              border: OutlineInputBorder(),
+            ),
             onChanged: (value) => setState(() => driver = value),
             validator: (value) =>
                 value == null || value.isEmpty ? 'Campo Obrigatório' : null,
           ),
           TextFormField(
             controller: driverDocumentController,
-            decoration: const InputDecoration(labelText: 'Documento'),
+            decoration: const InputDecoration(
+              labelText: 'Documento',
+              border: OutlineInputBorder(),
+            ),
             onChanged: (value) => setState(() => documentNumber = value),
           ),
           TextFormField(
             controller: notesController,
-            decoration: const InputDecoration(labelText: 'Observações'),
+            decoration: const InputDecoration(
+              labelText: 'Observações',
+              border: OutlineInputBorder(),
+            ),
             onChanged: (value) => setState(() => notes = value),
           ),
           Padding(

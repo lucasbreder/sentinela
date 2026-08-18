@@ -52,6 +52,19 @@ class NavPage extends StatelessWidget {
           ),
           GestureDetector(
             onTap: () {
+              Navigator.pushNamed(context, AppRoutes.driverLookup);
+            },
+            child: const Text(
+              'Último Condutor',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: () {
               Navigator.pushNamed(context, AppRoutes.profile);
             },
             child: const Text(
