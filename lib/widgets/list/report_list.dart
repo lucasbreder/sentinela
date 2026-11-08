@@ -1,11 +1,5 @@
-import 'dart:io';
-import 'dart:typed_data';
-
-import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -14,6 +8,7 @@ import 'package:sentinela/data/models/registry.dart';
 import 'package:sentinela/data/models/unit.dart';
 import 'package:sentinela/domain/flow_report_service.dart';
 import 'package:sentinela/helpers/format_date.dart';
+import 'package:sentinela/helpers/pdf_file_saver.dart';
 import 'package:sentinela/widgets/chart/hourly_flow_chart.dart';
 import 'package:sentinela/widgets/list/report_pdf_item.dart';
 import 'package:sentinela/widgets/select/unit_selector.dart';
@@ -110,18 +105,9 @@ class _ReportListState extends State<ReportList> {
     final Uint8List file = await pdf.save();
     final timestamp = DateFormat('yyyyMMdd-HHmmss').format(DateTime.now());
     try {
-      final path = await FileSaver.instance.saveAs(
-        name: 'Relatorio-$timestamp',
+      await savePdfFile(
+        fileName: 'Relatorio-$timestamp',
         bytes: file,
-        fileExtension: 'pdf',
-        mimeType: MimeType.pdf,
-      );
-      if (path == null) return;
-      final tempDir = await getTemporaryDirectory();
-      final tempFile = File('${tempDir.path}/Relatorio-$timestamp.pdf');
-      await tempFile.writeAsBytes(file);
-      await Share.shareXFiles(
-        [XFile(tempFile.path, mimeType: 'application/pdf')],
         subject: 'Relatório de guarda - $unitName',
         text: 'Relatório de guarda - $unitName',
       );
