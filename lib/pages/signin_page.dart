@@ -23,8 +23,9 @@ class _SignInPageState extends State<SignInPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      body: ListView(
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      body: SafeArea(
+        child: ListView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         children: [
           Form(
             key: _formKey,
@@ -107,6 +108,7 @@ class _SignInPageState extends State<SignInPage> {
             ),
           ),
         ],
+        ),
       ),
     );
   }

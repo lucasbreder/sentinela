@@ -36,17 +36,19 @@ class _SplashScreenState extends State<SplashScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF20528B),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset(
-              'assets/images/sentinela-icon.png',
-              width: 120,
-            ),
-            const SizedBox(height: 32),
-            const CircularProgressIndicator(color: Colors.white),
-          ],
+      body: SafeArea(
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Image.asset(
+                'assets/images/sentinela-icon.png',
+                width: 120,
+              ),
+              const SizedBox(height: 32),
+              const CircularProgressIndicator(color: Colors.white),
+            ],
+          ),
         ),
       ),
     );

@@ -67,11 +67,14 @@ class _InternalScaffoldState extends State<InternalScaffold> {
           )
         ],
       ),
-      body: SingleChildScrollView(
-        child: Container(
-          padding: const EdgeInsets.only(left: 25, right: 25, top: 20),
-          width: MediaQuery.of(context).size.width,
-          child: widget.child,
+      body: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          child: Container(
+            padding: const EdgeInsets.only(left: 25, right: 25, top: 20),
+            width: MediaQuery.of(context).size.width,
+            child: widget.child,
+          ),
         ),
       ),
     );

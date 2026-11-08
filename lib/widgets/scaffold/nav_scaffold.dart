@@ -67,11 +67,14 @@ class _NavScaffoldState extends State<NavScaffold> {
           )
         ],
       ),
-      body: Container(
-        color: Theme.of(context).colorScheme.primary,
-        padding: const EdgeInsets.all(25),
-        width: MediaQuery.of(context).size.width,
-        child: widget.child,
+      body: SafeArea(
+        top: false,
+        child: Container(
+          color: Theme.of(context).colorScheme.primary,
+          padding: const EdgeInsets.all(25),
+          width: MediaQuery.of(context).size.width,
+          child: widget.child,
+        ),
       ),
     );
   }

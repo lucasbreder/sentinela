@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.0 (7)
+
+### Correções
+- Correção do campo de documento vazio no relatório ao preencher automaticamente o último condutor
+- Melhorias de compatibilidade com Android 15 (exibição de ponta a ponta)
+- Remoção de código não utilizado no reconhecimento de placas
+
 ## 1.2.0 (6)
 
 ### Melhorias

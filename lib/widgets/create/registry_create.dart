@@ -68,10 +68,12 @@ class _RegistryCreateState extends State<RegistryCreate> {
     setState(() {
       if (last != null) {
         driver = last.driver;
+        documentNumber = last.documentNumber;
         driverNameController.text = last.driver;
         driverDocumentController.text = last.documentNumber;
       } else {
         driver = '';
+        documentNumber = '';
         driverNameController.text = '';
         driverDocumentController.text = '';
       }

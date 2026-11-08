@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui';
 
@@ -243,18 +242,6 @@ class PlateRecognitionService {
   /// Quantos blocos candidatos a recortar e reprocessar em alta qualidade.
   static const int _maxRoiCandidates = 3;
 
-  /// Reconhece e devolve a primeira placa válida em uma imagem.
-  Future<String?> recognize(String imagePath) async {
-    final decoded = img.decodeImage(File(imagePath).readAsBytesSync());
-    if (decoded == null) return null;
-    final recognizer = TextRecognizer(script: TextRecognitionScript.latin);
-    try {
-      final candidates = await _recognizeOnImage(decoded, recognizer);
-      return candidates.isEmpty ? null : candidates.first;
-    } finally {
-      unawaited(recognizer.close());
-    }
-  }
   /// Reconhece e devolve os candidatos de placa a partir dos bytes de uma
   /// imagem, pelo ML Kit com recorte da região da placa (ROI).
   Future<List<String>> recognizeBytes(
